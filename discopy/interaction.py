@@ -106,7 +106,7 @@ class Ty(NamedGeneric['natural']):
 
     The negative halves of a tensor come in reverse order, as the duals of
     a rigid category do; :attr:`negatives` is the hook that orders them,
-    which :class:`optics.Ty <discopy.optics.Ty>` overrides to keep them
+    which :class:`lens.Ty <discopy.lens.Ty>` overrides to keep them
     side by side.
 
     >>> from discopy.pivotal import Ty as T

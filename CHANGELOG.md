@@ -206,21 +206,23 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the objects to match; `Permutation` inherits `abc.PROP` on the strength
   of that, its first genuine user
   ([#709](https://github.com/discopy/discopy/issues/709)).
-- The category of optics, `discopy.optics`, over any symmetric underlying
-  category: an `Optic` is a residual with a forward and a backward
-  morphism, composing by tensoring the residuals as `discopy.para` does
-  with its co/parameters, over pairs `optics.Ty` tensored componentwise.
-  `Lens` is the optics of a cartesian category, defined over any Markov
-  one: a `get` and a `put` composing by the chain rule, with `to_optic`
-  and `Optic.to_lens` between the two, the latter taking the `discard` a
-  category without one lacks; `Optic.to_int` reads an optic over a traced
-  category as an integer diagram of `discopy.interaction`, the residual
-  being the wire between the legs, and `Traced` traces an optic over a
-  traced category leg by leg. Lenses over `python.Function` are the
-  reverse derivatives of gradient-based learning, and a parametric lens
-  `para.Symmetric[Lens[Function]]` a neural network with its weights'
-  gradients beside its input's. Composing lenses over a category without
-  `copy` and `discard` raises `messages.NOT_MARKOV`
+- Monoidal lenses, also called optics, `discopy.lens`, with one class for
+  each doctrine of the underlying category as in `discopy.para`.
+  `lens.Symmetric` is a residual with a forward and a backward morphism
+  over a symmetric category, composing by tensoring the residuals as
+  `discopy.para` does with its co/parameters, over pairs `lens.Ty`
+  tensored componentwise; `to_int` reads one over a traced category as an
+  integer diagram of `discopy.interaction`, the residual being the wire
+  between the legs, and `lens.Traced` traces it leg by leg.
+  `lens.Markov` is the lenses of functional programming, a `get` and a
+  `put` composing by the chain rule over a Markov category, with
+  `to_symmetric` and `lens.Symmetric.to_markov` between the two, the
+  latter taking the `discard` a category without one lacks. Lenses over
+  `python.Function` are the reverse derivatives of gradient-based
+  learning, and a parametric lens `para.Symmetric[lens.Markov[Function]]`
+  a neural network with its weights' gradients beside its input's.
+  Composing lenses over a category without `copy` and `discard` raises
+  `messages.NOT_MARKOV`
   ([#701](https://github.com/discopy/discopy/pull/701)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the

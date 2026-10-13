@@ -10,6 +10,6 @@ USER's review of 2026-10-13, verbatim:
 
 (on `negatives = staticmethod(reversed)` in `discopy/interaction.py`)
 
-- [WIP] @session_012rwYUnZyW48QqbPbXSpJfN-2026-10-13 07:50 rename `discopy.optics` to `discopy.lens`: `Optic` → `lens.Symmetric`, `Traced` → `lens.Traced`, `Lens` → `lens.Markov`, `to_lens`/`to_optic` → `to_markov`/`to_symmetric`; tests, images, docs, changelog follow
+- [x] rename `discopy.optics` to `discopy.lens`: `Optic` → `lens.Symmetric`, `Traced` → `lens.Traced`, `Lens` → `lens.Markov`, `to_lens`/`to_optic` → `to_markov`/`to_symmetric`; tests, images, docs, changelog follow
 - [ ] answer the `negatives` thread
 - [ ] retitle #757 (`Prism`) as `lens.Comarkov`

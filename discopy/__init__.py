@@ -26,7 +26,7 @@ from discopy import (
     feedback,
     stream,
     para,
-    optics,
+    lens,
     python,
     matrix,
     tensor,
