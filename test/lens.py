@@ -241,30 +241,22 @@ def test_markov_associativity():
 
 def test_markov_without_copy():
     get, put = Box('get', x, y), Box('put', x @ y_, x_)
-    l = Markov[Diagram](X, Y, get, put)
-    l_ = Markov[Diagram](Y, Z, Box('get_', y, z), Box('put_', y @ z_, y_))
-    assert l.get == get and l.put == put
-    for method in (lambda: l >> l_, lambda: Markov[Diagram].id(X),
-                   lambda: Markov[Diagram].lift(get),
-                   l.to_symmetric, f.to_markov):
+    for method in (lambda: Markov[Diagram](X, Y, get, put),
+                   lambda: Markov[Diagram].lift(get), f.to_markov):
         with raises(AxiomError, match="no copy or discard"):
             method()
-    discard = lambda typ: Box('discard', typ, T())
-    assert f.to_markov(discard).get == f.forward >> y @ discard(m)
-    assert f.to_markov(discard).put\
-        == f.forward @ y_ >> discard(y) @ m @ y_ >> f.backward
-    assert f.to_markov(discard) == Markov[Diagram](
-        X, Y, f.to_markov(discard).get, f.to_markov(discard).put)
 
 
-def test_markov_to_symmetric():
+def test_markov_is_symmetric():
     l = markov_lens()
-    lens_ = l.to_symmetric()
-    assert lens_.residual == x and lens_.backward == l.put
-    assert lens_.to_int().inside.to_hypergraph() == (
+    assert isinstance(l, Symmetric)
+    assert l.residual == x and l.backward == l.put
+    assert l.forward == markov.Diagram.copy(x) >> l.get @ x
+    assert l.to_int().inside.to_hypergraph() == (
         markov.Diagram.copy(x) @ y_ >> l.get @ x @ y_ >> y @ l.put
     ).to_hypergraph()
-    assert lens_.to_markov().get.to_hypergraph() == l.get.to_hypergraph()
+    assert l.to_markov().get.to_hypergraph() == l.get.to_hypergraph()
+    assert (l >> Markov.id(Y)).residual == x
 
 
 R = Ty[python.Ty]((float, ), (float, ))
@@ -281,9 +273,8 @@ def test_chain_rule():
     assert (square >> Markov[Function].id(R)).put(3., 1.) == 6.
     swapped = Markov[Function].swap(R, R) >> square @ square
     assert swapped.put(2., 3., 1., 1.) == (4., 6.)
-    lens_ = square.to_symmetric()
-    assert lens_.forward(3.) == (9., 3.)
-    assert lens_.to_markov().put(3., 1.) == 6.
+    assert square.forward(3.) == (9., 3.)
+    assert square.to_markov().put(3., 1.) == 6.
 
 
 def test_learner():

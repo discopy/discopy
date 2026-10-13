@@ -215,14 +215,15 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   integer diagram of `discopy.interaction`, the residual being the wire
   between the legs, and `lens.Traced` traces it leg by leg.
   `lens.Markov` is the lenses of functional programming, a `get` and a
-  `put` composing by the chain rule over a Markov category, with
-  `to_symmetric` and `lens.Symmetric.to_markov` between the two, the
-  latter taking the `discard` a category without one lacks. Lenses over
+  `put` composing by the chain rule over a Markov category: a subclass of
+  `lens.Symmetric` whose residual is the input, copied to be read by `get`
+  and kept for `put`, and `lens.Symmetric.to_markov` normalises any lens
+  to one. Lenses over
   `python.Function` are the reverse derivatives of gradient-based
   learning, and a parametric lens `para.Symmetric[lens.Markov[Function]]`
   a neural network with its weights' gradients beside its input's.
-  Composing lenses over a category without `copy` and `discard` raises
-  `messages.NOT_MARKOV`
+  Building a Markov lens over a category without `copy` and `discard`
+  raises `messages.NOT_MARKOV`
   ([#701](https://github.com/discopy/discopy/pull/701)).
 - A `workflows` job in `build.yml`, so that the code running our pull
   requests is checked like the code it checks: `actionlint` over the

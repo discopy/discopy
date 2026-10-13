@@ -5,7 +5,7 @@ Monoidal lenses, also called optics, over an underlying `category`, with
 one class for each doctrine as in :mod:`discopy.para`: :class:`Symmetric`
 over a symmetric category, :class:`Traced` over a traced one and
 :class:`Markov`, the lenses `(get, put)` of functional programming, over a
-Markov one.
+Markov one, i.e. the symmetric lenses whose residual is the input, copied.
 
 A lens from a pair `(x, x_)` to a pair `(y, y_)` is a residual `m` with a
 `forward` morphism `x -> y @ m` and a `backward` morphism `m @ y_ -> x_` in
@@ -68,8 +68,6 @@ It is well-behaved, i.e. it satisfies the three lens laws:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
-
 from discopy import interaction, markov, messages, monoidal, symmetric
 from discopy.abc import (
     MarkovCategory, NamedGeneric, SymmetricCategory, TracedCategory)
@@ -137,7 +135,8 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
     how the reverse derivative of a fan-out sums the gradients. Over a
     Markov category, lenses are only symmetric: copying a pair would ask
     for a merge on its negative half and discarding for a unit, which is
-    why :class:`Markov` is a symmetric category too.
+    why :class:`Markov`, the subclass with the copied input as residual,
+    is only a symmetric category too.
 
     .. admonition:: Summary
 
@@ -345,25 +344,18 @@ class Symmetric(SymmetricCategory, NamedGeneric['category']):
         return interaction.Diagram[self.category](
             inside, ob(*self.dom), ob(*self.cod))
 
-    def to_markov(self, discard: Callable = None) -> Markov:
+    def to_markov(self) -> Markov:
         """
-        The lens `(get, put)`: `get` discards the residual, `put` recomputes
-        it from the input and discards the output. When copy is natural,
-        i.e. over a cartesian category, this decides the quotient of lenses
-        by sliding a morphism across the residual, which is then
-        `dom.positive` up to sliding; over a Markov category, it forgets the
-        correlation between output and residual.
-
-        Parameters:
-            discard : The discard of the underlying category by default, or
-                an explicit one over a category without: the lens then has
-                a `put` but no composition, which copies.
+        The lens `(get, put)` over a Markov category: `get` discards the
+        residual, `put` recomputes it from the input and discards the output.
+        When copy is natural, i.e. over a cartesian category, this decides
+        the quotient of lenses by sliding a morphism across the residual,
+        which is then `dom.positive` up to sliding; over a Markov category,
+        it forgets the correlation between output and residual.
         """
         markov_lens = Markov[self.category]
-        if discard is None:
-            markov_lens.assert_ismarkov()
-            discard = self.category.discard
-        identity = self.category.id
+        markov_lens.assert_ismarkov()
+        identity, discard = self.category.id, self.category.discard
         positive, negative, residual = *self.cod, self.residual
         get = self.forward >> identity(positive) @ discard(residual)
         put = self.forward @ identity(negative) >> discard(positive)\
@@ -413,12 +405,13 @@ class Traced(Symmetric, TracedCategory):
                           self.backward.trace(n), self.residual)
 
 
-@dataclass
-class Markov(SymmetricCategory, NamedGeneric['category']):
+class Markov(Symmetric):
     """
-    A lens from `dom` to `cod` over a Markov `category` is a morphism
+    A lens from `dom` to `cod` over a Markov `category` given by a morphism
     `get : dom.positive -> cod.positive` and a morphism
-    `put : dom.positive @ cod.negative -> dom.negative`.
+    `put : dom.positive @ cod.negative -> dom.negative`, i.e. the symmetric
+    lens with the input as residual, copied to be read by `get` and kept for
+    `put`.
 
     Parameters:
         dom (Ty) : The domain of the lens.
@@ -427,50 +420,52 @@ class Markov(SymmetricCategory, NamedGeneric['category']):
         put (category) :
             The morphism ``dom.positive @ cod.negative -> dom.negative``.
 
+    Example
+    -------
+    >>> from discopy.markov import Ty as T, Box, Diagram
+    >>> x, x_, y, y_ = map(T, ["x", "x'", "y", "y'"])
+    >>> f = Markov(Ty(x, x_), Ty(y, y_),
+    ...            Box('get', x, y), Box('put', x @ y_, x_))
+    >>> assert f.residual == x and f.backward == f.put
+    >>> assert f.forward == Diagram.copy(x) >> f.get @ x
+    >>> f.to_int().draw(doctest="docs/_static/lens/markov.svg")
+
+    .. image:: /_static/lens/markov.svg
+        :align: center
+
     Note
     ----
-    These are the lenses whose residual is the input itself, copied. The
-    identity is a unit for composition up to the counit law on the left and
-    the naturality of discard on the right, i.e. the axioms of Markov
+    The identity is a unit for composition up to the counit law on the left
+    and the naturality of discard on the right, i.e. the axioms of Markov
     categories; composition is associative up to the naturality of copy for
     `get`, i.e. when `get` is deterministic, as every morphism of a
-    cartesian category is. They form a symmetric category and not a Markov
-    one: copying a pair would ask for a monoid on its negative half, which is
-    how the reverse derivative of a fan-out sums the gradients. A neural
-    network is a parametric lens, i.e. a
-    :class:`para.Symmetric <discopy.para.Symmetric>` over `lens.Markov`; see
-    :mod:`discopy.neural`.
+    cartesian category is. Unlike :class:`para.Markov <discopy.para.Markov>`,
+    a Markov lens is not a Markov category but only a symmetric one: copying
+    a pair would ask for a monoid on its negative half, which is how the
+    reverse derivative of a fan-out sums the gradients. A neural network is
+    a parametric lens, i.e. a :class:`para.Symmetric <discopy.para.Symmetric>`
+    over `lens.Markov`; see :mod:`discopy.neural`.
 
     .. admonition:: Summary
 
         .. autosummary::
 
             lift
-            id
             then
             tensor
-            swap
-            to_symmetric
     """
     category = markov.Diagram
-    ob = classproperty(lambda cls: pairs(cls.category))
 
-    dom: ob
-    cod: ob
-    get: category
-    put: category
+    def __init__(self, dom: Ty, cod: Ty, get: category, put: category):
+        self.assert_ismarkov()
+        assert_isinstance(dom, self.ob)
+        assert_isinstance(get, self.category)
+        identity, copy = self.category.id, self.category.copy
+        forward = copy(dom.positive) >> get @ identity(dom.positive)
+        self.get = get
+        super().__init__(dom, cod, forward, put, dom.positive)
 
-    def __post_init__(self):
-        assert_isinstance(self.dom, self.ob)
-        assert_isinstance(self.cod, self.ob)
-        assert_isinstance(self.get, self.category)
-        assert_isinstance(self.put, self.category)
-        identity = self.category.id
-        assert_iscomposable(identity(self.dom.positive), self.get)
-        assert_iscomposable(self.get, identity(self.cod.positive))
-        assert_iscomposable(
-            identity(self.dom.positive @ self.cod.negative), self.put)
-        assert_iscomposable(self.put, identity(self.dom.negative))
+    put = property(lambda self: self.backward)
 
     def __repr__(self):
         factory, category = map(
@@ -504,29 +499,17 @@ class Markov(SymmetricCategory, NamedGeneric['category']):
                    cls.ob(get.cod, backward.dom),
                    get, cls.category.discard(get.dom) @ backward)
 
-    @classmethod
-    def id(cls, dom: ob = None) -> Markov:
-        """
-        The identity lens on `dom`: `get` is the identity and `put` discards
-        the input.
-
-        Parameters:
-            dom : The domain of the identity, also its codomain.
-        """
-        dom = cls.ob() if dom is None else dom
-        return cls.lift(
-            cls.category.id(dom.positive), cls.category.id(dom.negative))
-
     @unbiased
     def then(self, other: Markov) -> Markov:
         """
         Sequential composition is the chain rule: `put` copies the input,
-        reads it with `self.get`, writes with `other.put` then `self.put`.
-        This is why lenses over :class:`Function <discopy.python.Function>`
-        are the semantics of reverse-mode differentiation
-        :cite:p:`CruttwellEtAl22`: the reverse derivative of a function `f`
-        is the lens with `get` its value and `put` its Jacobian transposed,
-        applied to the incoming gradient.
+        reads it with `self.get`, writes with `other.put` then `self.put`,
+        so that the residual stays the input rather than accumulating as in
+        :meth:`Symmetric.then`. This is why lenses over
+        :class:`Function <discopy.python.Function>` are the semantics of
+        reverse-mode differentiation :cite:p:`CruttwellEtAl22`: the reverse
+        derivative of a function `f` is the lens with `get` its value and
+        `put` its Jacobian transposed, applied to the incoming gradient.
 
         Parameters:
             other : The lens to compose with.
@@ -545,7 +528,6 @@ class Markov(SymmetricCategory, NamedGeneric['category']):
         108.0
         """
         assert_isinstance(other, type(self))
-        self.assert_ismarkov()
         assert_iscomposable(self, other)
         identity, copy = self.category.id, self.category.copy
         positive, negative = self.dom.positive, other.cod.negative
@@ -559,7 +541,8 @@ class Markov(SymmetricCategory, NamedGeneric['category']):
     def tensor(self, other: Markov) -> Markov:
         """
         Parallel composition swaps the input of `other` past the output of
-        `self` before applying both `put`.
+        `self` before applying both `put`, so that the residual stays the
+        input.
 
         Parameters:
             other : The lens to compose in parallel.
@@ -571,38 +554,3 @@ class Markov(SymmetricCategory, NamedGeneric['category']):
             @ swap(other.dom.positive, self.cod.negative)\
             @ identity(other.cod.negative) >> self.put @ other.put
         return type(self)(self.dom @ other.dom, self.cod @ other.cod, get, put)
-
-    @classmethod
-    def swap(cls, left: ob, right: ob) -> Markov:
-        """
-        The swap of two pairs is the swap of their positive halves as `get`
-        and of their negative halves as `put`, discarding the input.
-
-        Parameters:
-            left : The pair on the left of the swap.
-            right : The pair on the right of the swap.
-        """
-        return cls.lift(cls.category.swap(left.positive, right.positive),
-                        cls.category.swap(right.negative, left.negative))
-
-    def to_symmetric(self) -> Symmetric:
-        """
-        The lens over the underlying symmetric category: the residual is the
-        input, copied to be read by `get` and kept for `put`.
-
-        >>> from discopy.markov import Ty as T, Box
-        >>> x, x_, y, y_ = map(T, ["x", "x'", "y", "y'"])
-        >>> f = Markov(Ty(x, x_), Ty(y, y_),
-        ...            Box('get', x, y), Box('put', x @ y_, x_))
-        >>> f.to_symmetric().to_int().draw(
-        ...     doctest="docs/_static/lens/markov.svg")
-
-        .. image:: /_static/lens/markov.svg
-            :align: center
-        """
-        self.assert_ismarkov()
-        identity, copy = self.category.id, self.category.copy
-        positive = self.dom.positive
-        forward = copy(positive) >> self.get @ identity(positive)
-        return Symmetric[self.category](
-            self.dom, self.cod, forward, self.put, positive)
