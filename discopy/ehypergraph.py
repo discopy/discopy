@@ -91,10 +91,8 @@ from typing import TYPE_CHECKING, Hashable, Iterable, Iterator
 import numpy as np
 
 from discopy import (
-    compact, frobenius, hypergraph, markov, messages, monoidal, rigid,
-    symmetric, traced)
+    compact, frobenius, hypergraph, markov, messages, rigid, symmetric, traced)
 from discopy.abc import (
-    ColouredMonoid,
     CompactCategory,
     HypergraphCategory,
     MarkovCategory,
@@ -184,15 +182,15 @@ class SymbolTable:
         return f"{factory_name(type(self))}({self.inside})"
 
 
-class Shard(ColouredMonoid):
+class Shard:
     """
     The cells of an e-hypergraph that are occurrences of the same box, as a
     table with one row for each cell.
 
     Each row holds the wires on the ports of its cell, inputs then outputs,
     i.e. it has :attr:`n_in` ``+`` :attr:`n_out` wires, the lengths of the
-    domain and codomain of the box. Shards form a monoid coloured by their box,
-    with the concatenation of their rows as tensor.
+    domain and codomain of the box. The shards of an e-hypergraph are a
+    collection of monoids indexed by box, with :meth:`concatenate` as product.
 
     The rows are the first :attr:`length` rows of :attr:`columns`, which has
     room for more: :meth:`append` doubles it when it is full, see :func:`grow`,
@@ -213,10 +211,9 @@ class Shard(ColouredMonoid):
     >>> shard.append((3, 4, 5))
     >>> shard.doms.tolist(), shard.cods.tolist()
     ([[0], [3]], [[1, 2], [4, 5]])
-    >>> assert shard @ Shard(f, [(6, 7, 8)]).shift(1)\\
+    >>> assert shard.concatenate(Shard(f, [(6, 7, 8)]).shift(1))\\
     ...     == Shard(f, [(0, 1, 2), (3, 4, 5), (7, 8, 9)])
     """
-    ob = monoidal.Box
 
     def __init__(self, box: Box, rows: list[tuple[int, ...]] = ()):
         self.box, self.length = box, 0
@@ -234,23 +231,6 @@ class Shard(ColouredMonoid):
         """ The number of output ports of every cell. """
         return len(self.box.cod)
 
-    @property
-    def dom(self) -> Box:
-        """ The colour of the shard, i.e. its box. """
-        return self.box
-
-    cod = dom
-
-    @classmethod
-    def id(cls, dom: Box) -> Shard:
-        """
-        The empty shard of a given box.
-
-        Parameters:
-            dom : The box of the shard.
-        """
-        return cls(dom)
-
     def append(self, row: tuple[int, ...]):
         """
         Add one row, growing the columns when they are full.
@@ -265,15 +245,15 @@ class Shard(ColouredMonoid):
         self.columns[self.length] = row
         self.length += 1
 
-    def tensor(self, *others: Shard) -> Shard:
+    def concatenate(self, *others: Shard) -> Shard:
         """
         The concatenation of the rows of shards with the same box.
 
         Parameters:
             others : The other shards.
         """
-        for other in others:
-            assert_iscomposable(self, other)
+        if any(other.box != self.box for other in others):
+            raise ValueError
         result = type(self)(self.box)
         result.columns = np.concatenate(
             [shard.columns[:shard.length] for shard in (self, ) + others])
@@ -677,9 +657,9 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
                 result.uf.union(offset + wire, offset + label)
         for key, shard in other.shards.items():
             new = result.boxes.intern(shard.box)
-            base = result.shards.get(new, Shard.id(shard.box))
+            base = result.shards.get(new, Shard(shard.box))
             shards[key] = new, len(base)
-            result.shards[new] = base @ shard.shift(offset)
+            result.shards[new] = base.concatenate(shard.shift(offset))
         for gid, (key, row) in enumerate(other.rows):
             result.rows.append((shards[key][0], shards[key][1] + row))
             if gid in other.dead:

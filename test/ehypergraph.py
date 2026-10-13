@@ -38,16 +38,16 @@ def test_Shard():
         shard.append((0, 1, 2))
 
 
-def test_Shard_monoid():
+def test_Shard_concatenate():
     left, right = Shard(h, [(0, 1)]), Shard(h, [(2, 3)])
-    assert left @ right == Shard(h, [(0, 1), (2, 3)])
-    assert left @ Shard.id(h) == left == Shard.id(h) @ left
+    assert left.concatenate(right) == Shard(h, [(0, 1), (2, 3)])
+    assert left.concatenate(Shard(h)) == left == Shard(h).concatenate(left)
     assert right.shift(2) == Shard(h, [(4, 5)]) != right
-    grown = left @ right
+    grown = left.concatenate(right)
     grown.append((6, 7))
     assert list(left) == [(0, 1)] and len(grown) == 3
-    with raises(AxiomError):
-        left @ Shard(f)
+    with raises(ValueError):
+        left.concatenate(Shard(f))
 
 
 def test_structure():
