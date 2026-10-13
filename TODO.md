@@ -105,7 +105,7 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 - [ ] Keep the tables of `Shard` and `SymbolTable` or store cells as
       `Hypergraph.box_wires` does, waiting on @toumix
 - [x] Update the changelog entry of #730
-- [WIP] @e7a1b3c-2026-10-13 19:20 Merge `main` into the branch
+- [x] Merge `main` into the branch
 - [WIP] @e7a1b3c-2026-10-13 19:20 Update the description of #730, which still describes `table.Carrier`,
       `Morphism` and `Supply`
 - [ ] `pflake8`, `pylint`, `pytest`
