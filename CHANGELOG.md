@@ -632,6 +632,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- A regression test for `stream.Stream.__init__`'s codomain-mismatch
+  `AxiomError`, which reports `cod`/`now.cod` rather than the `dom`/`now.dom`
+  it once printed on both sides of `!=`. The message was corrected in passing
+  by the `+`→`@` object rewrite; the test pins it so a future refactor cannot
+  silently reintroduce the bug
+  ([#605](https://github.com/discopy/discopy/issues/605)).
 - `biclosed.Curry`'s own constructor defaulted to `left=False`, disagreeing
   with `Diagram.curry`'s `left=True` default since #560 unified the two: a
   bare `Curry(box)` curried the opposite side of `box.curry()`, and
