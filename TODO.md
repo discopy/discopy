@@ -96,18 +96,17 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 - [x] Document why `Shard.length` is an attribute (`ehypergraph.py:207`)
 - [x] Start the columns of a `Shard` empty, since `grow` handles zero rows
       (`ehypergraph.py:208`)
-- [ ] Make `Shard` a monoid per arity rather than a category with
-      `dom == cod` (`ehypergraph.py:217`), waiting on @toumix
-- [ ] Rename `Shard.tensor` to `concatenate` (`ehypergraph.py:243`), with
-      the previous point, since `ColouredMonoid` names it `tensor`
+- [WIP] @e7a1b3c-2026-10-14 10:30 Make `Shard` plain data, with no algebraic structure, the monoids being
+      the `shards` of the e-hypergraph, as @toumix chose (`ehypergraph.py:217`)
+- [WIP] @e7a1b3c-2026-10-14 10:30 Rename `Shard.tensor` to `concatenate` (`ehypergraph.py:243`)
 - [x] Rename `Shard.src` and `Shard.tgt` to `doms` and `cods`
       (`ehypergraph.py:272`)
-- [ ] Keep the tables of `Shard` and `SymbolTable` or store cells as
-      `Hypergraph.box_wires` does, waiting on @toumix
+- [x] Keep the tables of `Shard` and `SymbolTable`: @toumix is fine with
+      them in this pull request even though nothing uses them yet
 - [x] Update the changelog entry of #730
 - [x] Merge `main` into the branch
 - [x] Update the description of #730, which still describes `table.Carrier`,
       `Morphism` and `Supply`
 - [x] `pflake8`, `pylint`, `pytest`
-- [ ] Reply to and resolve the review threads of this round, i.e. once
-      @toumix answers on `ehypergraph.py:217, 243, 365`
+- [WIP] @e7a1b3c-2026-10-14 10:30 Reply to and resolve the review threads of this round
+      (`ehypergraph.py:217, 243`; 365 waits on @toumix)
