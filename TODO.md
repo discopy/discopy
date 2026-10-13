@@ -1,0 +1,15 @@
+# TODO
+
+USER's review of 2026-10-13, verbatim:
+
+> Change of terminology: let's rename this optics module into lens so that we don't confuse it with quantum optics / photonics as the optyx lbrary will move here @giodefelice
+>
+> "Monoidal lens" is used more or less interchangeably with "monoidal optics" so let's use that terminology and reproduce the same architecture as in the `para` module, i.e. one class for each doctrine where is makes sense e.g. `lens.Symmetric`, `lens.Traced`, `lens.Markov` etc. (so e.g. the `Prism` class we filed as an issue will be `lens.Comarkov`)
+
+> can't this be just a dunder for unary minus of a Ty?
+
+(on `negatives = staticmethod(reversed)` in `discopy/interaction.py`)
+
+- [WIP] @session_012rwYUnZyW48QqbPbXSpJfN-2026-10-13 07:50 rename `discopy.optics` to `discopy.lens`: `Optic` → `lens.Symmetric`, `Traced` → `lens.Traced`, `Lens` → `lens.Markov`, `to_lens`/`to_optic` → `to_markov`/`to_symmetric`; tests, images, docs, changelog follow
+- [ ] answer the `negatives` thread
+- [ ] retitle #757 (`Prism`) as `lens.Comarkov`
