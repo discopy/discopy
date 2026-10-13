@@ -44,7 +44,7 @@ jobs:
       with:
         python-version: "3.14"
     - name: Download the example database
-      uses: dawidd6/action-download-artifact@ac66b43f0e6a346234dd65d4d0c8fbb31cb316e5 # v11
+      uses: dawidd6/action-download-artifact@27e4ae67c24b67d3b54bc6d6a45475be1e28031b # v26
       with:
         name: hypothesis-example-db
         path: .hypothesis/examples
