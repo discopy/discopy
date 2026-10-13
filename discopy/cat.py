@@ -82,10 +82,9 @@ from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
 
 from discopy import messages, utils
-from discopy.abc import Category
+from discopy.abc import Category, Setoid
 from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
-    Setoid,
     classproperty,
     factory,
     factory_name,
@@ -377,7 +376,7 @@ class Arrow(FreeCategory, Testable["Arrow"], Setoid):
         Returns data that faithfully describes an `Arrow` making sure that
         `self.generator.setoid == self.setoid` when `self.is_generator`.
         This is used to define `Arrow.__eq__` and `Arrow.__hash__`, see
-        :class:`discopy.utils.Setoid`.
+        :class:`discopy.abc.Setoid`.
 
         Abstract
         --------

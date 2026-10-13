@@ -26,27 +26,28 @@ def test_SymbolTable():
 
 
 def test_Shard():
-    shard = Shard(1, 1, [(0, 1)])
+    shard = Shard(h, [(0, 1)])
     for row in [(2, 3), (4, 5)]:
         shard.append(row)
     assert list(shard) == [(0, 1), (2, 3), (4, 5)] and len(shard) == 3
-    assert shard.src.tolist() == [[0], [2], [4]]
-    assert shard.tgt.tolist() == [[1], [3], [5]]
-    assert shard == eval(repr(shard)) != Shard(1, 1)
+    assert shard.doms.tolist() == [[0], [2], [4]]
+    assert shard.cods.tolist() == [[1], [3], [5]]
+    assert shard == eval(repr(shard)) != Shard(h)
+    assert Shard(state).doms.shape == (0, 0) and len(Shard(state)) == 0
     with raises(ValueError):
         shard.append((0, 1, 2))
 
 
 def test_Shard_monoid():
-    left, right = Shard(1, 1, [(0, 1)]), Shard(1, 1, [(2, 3)])
-    assert left @ right == Shard(1, 1, [(0, 1), (2, 3)])
-    assert left @ Shard.id((1, 1)) == left == Shard.id((1, 1)) @ left
-    assert right.shift(2) == Shard(1, 1, [(4, 5)]) != right
+    left, right = Shard(h, [(0, 1)]), Shard(h, [(2, 3)])
+    assert left @ right == Shard(h, [(0, 1), (2, 3)])
+    assert left @ Shard.id(h) == left == Shard.id(h) @ left
+    assert right.shift(2) == Shard(h, [(4, 5)]) != right
     grown = left @ right
     grown.append((6, 7))
     assert list(left) == [(0, 1)] and len(grown) == 3
     with raises(AxiomError):
-        left @ Shard(1, 2)
+        left @ Shard(f)
 
 
 def test_structure():

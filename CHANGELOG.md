@@ -11,7 +11,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - E-hypergraphs, `discopy.ehypergraph`, encoding a set of diagrams as an
   open hypergraph whose wires sit in a union-find, stored as a table of
-  cells sharded by box and arity. Each tree of the union-find is a vertex,
+  cells sharded by box. Each tree of the union-find is a vertex,
   so merging two wires fuses two spiders and a vertex with more than one
   producing cell holds alternatives, which a `Hypergraph` cannot express: it
   reads the same incidence data as a Frobenius merge, and indeed
@@ -39,7 +39,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   three places that had their own copy: `CMap.from_glued`,
   `Hypergraph.from_glued` and `Hypergraph.is_boundary_connected`
   ([#730](https://github.com/discopy/discopy/pull/730)).
-- `utils.Setoid`, the equality and hash of a class given by a `setoid`
+- `abc.Setoid`, the equality and hash of a class given by a `setoid`
   method, extracted from `cat.Arrow`, which now inherits it, and used by
   `discopy.ehypergraph`
   ([#730](https://github.com/discopy/discopy/pull/730)).
@@ -660,6 +660,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The docs of `discopy.markov` called its free category semicartesian, i.e.
+  with discarding natural, which it is not: it is a copy-discard category,
+  named Markov for brevity where Fritz reserves the name for the
+  semicartesian ones ([#730](https://github.com/discopy/discopy/pull/730)).
 - `biclosed.Curry`'s own constructor defaulted to `left=False`, disagreeing
   with `Diagram.curry`'s `left=True` default since #560 unified the two: a
   bare `Curry(box)` curried the opposite side of `box.curry()`, and

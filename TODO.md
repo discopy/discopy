@@ -85,22 +85,22 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 - [x] Drop `MarkovCategory.is_affine` and `is_cartesian`, which nothing reads
       once `Supply` is gone, so that `markov.Diagram` is no longer affine
       (`abc.py:681, 689`, `markov.py:117`)
-- [WIP] @e7a1b3c-2026-10-13 18:05 File an issue for determinism as a lattice of copy-discard categories and as
-      a property of morphisms, and link it (`abc.py:681, 689`)
-- [WIP] @e7a1b3c-2026-10-13 18:05 Say in the docs of `markov` that it means copy-discard, not affine
+- [x] File an issue for determinism as a lattice of copy-discard categories and as
+      a property of morphisms, and link it (`abc.py:681, 689`): #802
+- [x] Say in the docs of `markov` that it means copy-discard, not affine
       (`markov.py:117`)
-- [WIP] @e7a1b3c-2026-10-13 18:05 Move `Setoid` to `discopy.abc` (`utils.py:762`)
-- [WIP] @e7a1b3c-2026-10-13 18:05 Store the box of a `Shard`, reading its arity off it (`ehypergraph.py:183`)
-- [WIP] @e7a1b3c-2026-10-13 18:05 Document that every row of a `Shard` has `n_in + n_out` wires
+- [x] Move `Setoid` to `discopy.abc` (`utils.py:762`)
+- [x] Store the box of a `Shard`, reading its arity off it (`ehypergraph.py:183`)
+- [x] Document that every row of a `Shard` has `n_in + n_out` wires
       (`ehypergraph.py:192`)
-- [WIP] @e7a1b3c-2026-10-13 18:05 Document why `Shard.length` is an attribute (`ehypergraph.py:207`)
-- [WIP] @e7a1b3c-2026-10-13 18:05 Start the columns of a `Shard` empty, since `grow` handles zero rows
+- [x] Document why `Shard.length` is an attribute (`ehypergraph.py:207`)
+- [x] Start the columns of a `Shard` empty, since `grow` handles zero rows
       (`ehypergraph.py:208`)
 - [ ] Make `Shard` a monoid per arity rather than a category with
       `dom == cod` (`ehypergraph.py:217`), waiting on @toumix
 - [ ] Rename `Shard.tensor` to `concatenate` (`ehypergraph.py:243`), with
       the previous point, since `ColouredMonoid` names it `tensor`
-- [WIP] @e7a1b3c-2026-10-13 18:05 Rename `Shard.src` and `Shard.tgt` to `doms` and `cods`
+- [x] Rename `Shard.src` and `Shard.tgt` to `doms` and `cods`
       (`ehypergraph.py:272`)
 - [ ] Update the changelog entry of #730
 - [ ] `pflake8`, `pylint`, `pytest`

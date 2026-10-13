@@ -5,8 +5,8 @@ E-hypergraphs, i.e. string diagrams with alternatives as a table of cells.
 
 An e-hypergraph is an open hypergraph with a union-find on its wires: a table
 of cells, each an occurrence of a box whose row holds the wires on its ports,
-together with a domain and a codomain. Rows are sharded by box and arity so
-that each :class:`Shard` is a rectangular table of integers.
+together with a domain and a codomain. Rows are sharded by box so that each
+:class:`Shard` is a rectangular table of integers.
 
 Each tree of the union-find is a vertex, i.e. the spider whose legs are its
 member wires. Thus :meth:`Symmetric.merge` fuses two vertices and a vertex
@@ -91,19 +91,20 @@ from typing import TYPE_CHECKING, Hashable, Iterable, Iterator
 import numpy as np
 
 from discopy import (
-    compact, frobenius, hypergraph, markov, messages, rigid, symmetric, traced)
+    compact, frobenius, hypergraph, markov, messages, monoidal, rigid,
+    symmetric, traced)
 from discopy.abc import (
     ColouredMonoid,
     CompactCategory,
     HypergraphCategory,
     MarkovCategory,
     NamedGeneric,
+    Setoid,
     SymmetricCategory,
     TracedCategory,
 )
 from discopy.utils import (
     AxiomError,
-    Setoid,
     UnionFind,
     assert_iscomposable,
     classproperty,
@@ -185,51 +186,70 @@ class SymbolTable:
 
 class Shard(ColouredMonoid):
     """
-    The rows of an e-hypergraph that share a box and an arity.
+    The cells of an e-hypergraph that are occurrences of the same box, as a
+    table with one row for each cell.
 
-    Shards form a monoid coloured by their arity ``(n_in, n_out)``, with the
-    concatenation of their rows as tensor. Rows are also added one at a time
-    with :meth:`append`, which grows the columns in place.
+    Each row holds the wires on the ports of its cell, inputs then outputs,
+    i.e. it has :attr:`n_in` ``+`` :attr:`n_out` wires, the lengths of the
+    domain and codomain of the box. Shards form a monoid coloured by their box,
+    with the concatenation of their rows as tensor.
+
+    The rows are the first :attr:`length` rows of :attr:`columns`, which has
+    room for more: :meth:`append` doubles it when it is full, see :func:`grow`,
+    so that adding ``n`` rows one at a time copies ``O(n)`` wires rather than
+    ``O(n ** 2)``. This is why the length is an attribute rather than the
+    length of the columns.
 
     Parameters:
-        n_in : The number of input ports of every row.
-        n_out : The number of output ports of every row.
-        rows : The wires of each row, inputs then outputs.
+        box : The box of every cell.
+        rows : The wires of each cell, inputs then outputs.
 
     Example
     -------
-    >>> shard = Shard(1, 2, [(0, 1, 2)])
+    >>> from discopy.symmetric import Ty, Box
+    >>> x = Ty('x')
+    >>> f = Box('f', x, x @ x)
+    >>> shard = Shard(f, [(0, 1, 2)])
     >>> shard.append((3, 4, 5))
-    >>> shard.src.tolist(), shard.tgt.tolist()
+    >>> shard.doms.tolist(), shard.cods.tolist()
     ([[0], [3]], [[1, 2], [4, 5]])
-    >>> shard @ Shard(1, 2, [(6, 7, 8)]).shift(1)
-    ehypergraph.Shard(1, 2, [(0, 1, 2), (3, 4, 5), (7, 8, 9)])
+    >>> assert shard @ Shard(f, [(6, 7, 8)]).shift(1)\\
+    ...     == Shard(f, [(0, 1, 2), (3, 4, 5), (7, 8, 9)])
     """
-    ob = tuple
+    ob = monoidal.Box
 
-    def __init__(self, n_in: int, n_out: int,
-                 rows: list[tuple[int, ...]] = ()):
-        self.n_in, self.n_out, self.length = n_in, n_out, 0
-        self.columns = np.zeros((1, n_in + n_out), dtype=np.int64)
+    def __init__(self, box: Box, rows: list[tuple[int, ...]] = ()):
+        self.box, self.length = box, 0
+        self.columns = np.zeros((0, self.n_in + self.n_out), dtype=np.int64)
         for row in rows:
             self.append(row)
 
     @property
-    def dom(self) -> tuple[int, int]:
-        """ The colour of the shard, i.e. its arity. """
-        return self.n_in, self.n_out
+    def n_in(self) -> int:
+        """ The number of input ports of every cell. """
+        return len(self.box.dom)
+
+    @property
+    def n_out(self) -> int:
+        """ The number of output ports of every cell. """
+        return len(self.box.cod)
+
+    @property
+    def dom(self) -> Box:
+        """ The colour of the shard, i.e. its box. """
+        return self.box
 
     cod = dom
 
     @classmethod
-    def id(cls, dom: tuple[int, int]) -> Shard:
+    def id(cls, dom: Box) -> Shard:
         """
-        The empty shard of a given arity.
+        The empty shard of a given box.
 
         Parameters:
-            dom : The arity of the shard.
+            dom : The box of the shard.
         """
-        return cls(*dom)
+        return cls(dom)
 
     def append(self, row: tuple[int, ...]):
         """
@@ -247,14 +267,14 @@ class Shard(ColouredMonoid):
 
     def tensor(self, *others: Shard) -> Shard:
         """
-        The concatenation of the rows of shards with the same arity.
+        The concatenation of the rows of shards with the same box.
 
         Parameters:
             others : The other shards.
         """
         for other in others:
             assert_iscomposable(self, other)
-        result = type(self)(self.n_in, self.n_out)
+        result = type(self)(self.box)
         result.columns = np.concatenate(
             [shard.columns[:shard.length] for shard in (self, ) + others])
         result.length = len(result.columns)
@@ -268,19 +288,19 @@ class Shard(ColouredMonoid):
         Parameters:
             offset : The number to add to each wire.
         """
-        result = type(self)(self.n_in, self.n_out)
+        result = type(self)(self.box)
         result.columns = self.columns[:self.length] + offset
         result.length = self.length
         return result
 
     @property
-    def src(self) -> np.ndarray:
-        """ The input columns of the rows. """
+    def doms(self) -> np.ndarray:
+        """ The input columns of the rows, i.e. the wires on the domain. """
         return self.columns[:self.length, :self.n_in]
 
     @property
-    def tgt(self) -> np.ndarray:
-        """ The output columns of the rows. """
+    def cods(self) -> np.ndarray:
+        """ The output columns of the rows, i.e. the wires on the codomain. """
         return self.columns[:self.length, self.n_in:]
 
     def __getitem__(self, row: int) -> tuple[int, ...]:
@@ -290,16 +310,14 @@ class Shard(ColouredMonoid):
         return self.length
 
     def __eq__(self, other) -> bool:
-        return isinstance(other, Shard) and (
-            self.n_in, self.n_out, list(self)) == (
-                other.n_in, other.n_out, list(other))
+        return isinstance(other, Shard)\
+            and (self.box, list(self)) == (other.box, list(other))
 
     def __iter__(self) -> Iterator[tuple[int, ...]]:
         return (self[row] for row in range(self.length))
 
     def __repr__(self) -> str:
-        return factory_name(type(self))\
-            + f"({self.n_in}, {self.n_out}, {list(self)})"
+        return factory_name(type(self)) + f"({self.box!r}, {list(self)})"
 
 
 class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
@@ -332,7 +350,7 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
     >>> graph = Symmetric(
     ...     x, x, (f, ), ((0, ), (((0, ), (1, )), ), (1, )), [x, x])
     >>> assert graph == Symmetric.from_diagram(f)
-    >>> assert graph.shards[graph.boxes.intern(f), 1, 1][0] == (0, 1)
+    >>> assert graph.shards[graph.boxes.intern(f)][0] == (0, 1)
     """
     category = symmetric.Diagram
     ob = classproperty(lambda cls: cls.category.ob)
@@ -395,8 +413,8 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         """
         self.check(src, box.dom)
         self.check(tgt, box.cod)
-        key = (self.boxes.intern(box), len(box.dom), len(box.cod))
-        shard = self.shards.setdefault(key, Shard(key[1], key[2]))
+        key = self.boxes.intern(box)
+        shard = self.shards.setdefault(key, Shard(box))
         shard.append(tuple(src) + tuple(tgt))
         self.rows.append((key, len(shard) - 1))
         self.hashcons.setdefault(
@@ -412,7 +430,7 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
             box : The box to intern.
             src : The wires on its input ports.
         """
-        key = (self.boxes.intern(box), len(box.dom), len(box.cod))
+        key = self.boxes.intern(box)
         gid = self.hashcons.get((key, self.signature(box, src)))
         if gid is not None:
             return self[gid][2]
@@ -658,8 +676,8 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
             if wire != label:
                 result.uf.union(offset + wire, offset + label)
         for key, shard in other.shards.items():
-            new = (result.boxes.intern(other.boxes[key[0]]), ) + key[1:]
-            base = result.shards.get(new, Shard.id(key[1:]))
+            new = result.boxes.intern(shard.box)
+            base = result.shards.get(new, Shard.id(shard.box))
             shards[key] = new, len(base)
             result.shards[new] = base @ shard.shift(offset)
         for gid, (key, row) in enumerate(other.rows):
@@ -819,8 +837,9 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
 
     def __getitem__(self, gid: int) -> tuple[Box, tuple, tuple]:
         key, row = self.rows[gid]
-        wires = self.shards[key][row]
-        return self.boxes[key[0]], wires[:key[1]], wires[key[1]:]
+        shard = self.shards[key]
+        wires = shard[row]
+        return shard.box, wires[:shard.n_in], wires[shard.n_in:]
 
     def __copy__(self) -> Symmetric:
         result = type(self)(self.dom, self.cod)

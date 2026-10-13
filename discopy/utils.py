@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import json
 from functools import lru_cache, wraps
 from math import ceil
@@ -757,42 +756,6 @@ class classproperty(object):
 
     def __get__(self, _, x):
         return self.f(x)
-
-
-class Setoid(ABC):
-    """
-    A `setoid <https://en.wikipedia.org/wiki/Setoid>`_, i.e. a type together
-    with an equivalence relation, given by a key: two instances of
-    :attr:`setoid_type` are equal when their :meth:`setoid` are, and an
-    instance hashes as its :meth:`setoid`.
-
-    Example
-    -------
-    >>> class Parity(Setoid, int):
-    ...     def setoid(self):
-    ...         return self % 2
-    >>> assert Parity(1) == Parity(3) != Parity(2)
-    >>> assert len({Parity(1), Parity(3)}) == 1
-
-    Warning
-    -------
-    Messing around with :meth:`setoid` can lead to so-called **setoid hell**.
-    In Python there is no way to give a formal proof that a function, e.g.
-    functor application, is in fact a morphism of setoids, i.e. that it
-    sends equal inputs to equal outputs.
-    """
-    setoid_type = classproperty(lambda cls: cls)
-
-    @abstractmethod
-    def setoid(self) -> Any:
-        """ The data that describes an instance up to equivalence. """
-
-    def __eq__(self, other):
-        return isinstance(other, self.setoid_type)\
-            and self.setoid() == other.setoid()
-
-    def __hash__(self):
-        return hash(self.setoid())
 
 
 class Node:
