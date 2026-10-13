@@ -118,12 +118,12 @@ def test_Frobenius_laws():
     assert Frobenius.id(x) >> f_ == f_ == f_ >> Frobenius.id(y)
     assert f_ @ h_ == F(f @ Id(x) >> Id(y) @ h) == F(Id(x) @ h >> f @ Id(x))
     assert hash(f_ >> g_) == hash(F(f >> g))
+    assert F(Swap(x, y) >> Swap(y, x)) == Frobenius.id(x @ y)
     with raises(AxiomError):
         f_ >> f_
 
 
 def test_Traced_lowering():
-    assert F(Swap(x, y) >> Swap(y, x)) == Frobenius.id(x @ y)
     x_ = symmetric.Ty('x')
     G = Traced.from_diagram
     assert G(symmetric.Swap(x_, x_).trace()) == G(symmetric.Id(x_))

@@ -24,9 +24,9 @@ are equal modulo the structure of their category.
 As in :mod:`discopy.para`, each subclass assumes more structure of its
 underlying `category` and specialises the methods where that structure holds:
 :meth:`Symmetric.lower_box`, which turns it into wiring,
-:meth:`Symmetric.canonize`, which adds what it simplifies next to what it
-simplifies, and :meth:`Symmetric.congruence`, which merges the outputs of two
-occurrences of a box on the same inputs.
+:meth:`Symmetric.canonize`, which adds the simplified form of some cells next
+to them and removes none, and :meth:`Symmetric.congruence`, which merges the
+outputs of two occurrences of a box on the same inputs.
 
 * :class:`Symmetric` turns permutations into wiring,
 * :class:`Traced` turns traces into feedback,
@@ -476,9 +476,9 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
 
     def canonize(self):
         """
-        Add what the structure of the category simplifies, next to what it
-        simplifies: nothing for a symmetric category, where the structure is
-        all wiring already.
+        Add the simplified form of some cells next to them, removing none:
+        nothing to add for a symmetric category, where the structure is all
+        wiring already.
         """
 
     def saturate(self) -> Symmetric:
