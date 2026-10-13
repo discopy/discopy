@@ -79,10 +79,10 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
 > doesn't make sense to call them `dom` and `cod` either because `cod == dom`
 > doesn't make sense, but we could call them `doms` and `cods`?
 
-- [ ] Replace `Supply` by a hierarchy of e-hypergraphs parameterised by their
+- [WIP] @e7a1b3c-2026-10-13 13:17 Replace `Supply` by a hierarchy of e-hypergraphs parameterised by their
       `category`, as in `para`, each specialising the methods its structure
       calls for (`ehypergraph.py:301, 354, 356, 365`)
-- [ ] Drop `MarkovCategory.is_affine` and `is_cartesian`, which nothing reads
+- [WIP] @e7a1b3c-2026-10-13 13:17 Drop `MarkovCategory.is_affine` and `is_cartesian`, which nothing reads
       once `Supply` is gone, so that `markov.Diagram` is no longer affine
       (`abc.py:681, 689`, `markov.py:117`)
 - [ ] Move `Setoid` to `discopy.abc` (`utils.py:762`)
