@@ -102,6 +102,12 @@ Review round on [#730](https://github.com/discopy/discopy/pull/730):
       the previous point, since `ColouredMonoid` names it `tensor`
 - [x] Rename `Shard.src` and `Shard.tgt` to `doms` and `cods`
       (`ehypergraph.py:272`)
-- [ ] Update the changelog entry of #730
+- [ ] Keep the tables of `Shard` and `SymbolTable` or store cells as
+      `Hypergraph.box_wires` does, waiting on @toumix
+- [x] Update the changelog entry of #730
+- [WIP] @e7a1b3c-2026-10-13 19:20 Merge `main` into the branch
+- [WIP] @e7a1b3c-2026-10-13 19:20 Update the description of #730, which still describes `table.Carrier`,
+      `Morphism` and `Supply`
 - [ ] `pflake8`, `pylint`, `pytest`
-- [ ] Reply to and resolve the review threads of this round
+- [ ] Reply to and resolve the review threads of this round, i.e. once
+      @toumix answers on `ehypergraph.py:217, 243, 365`
