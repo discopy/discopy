@@ -82,9 +82,10 @@ from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
 
 from discopy import messages, utils
-from discopy.abc import Category
+from discopy.abc import Category, Setoid
 from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
 from discopy.utils import (  # noqa: F401
+    classproperty,
     factory,
     factory_name,
     from_tree,
@@ -260,7 +261,7 @@ class FreeCategory(Category):
 
 
 @factory
-class Arrow(FreeCategory, Testable["Arrow"]):
+class Arrow(FreeCategory, Testable["Arrow"], Setoid):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -374,7 +375,8 @@ class Arrow(FreeCategory, Testable["Arrow"]):
         """
         Returns data that faithfully describes an `Arrow` making sure that
         `self.generator.setoid == self.setoid` when `self.is_generator`.
-        This is used to define `Arrow.__eq__` and `Arrow.__hash__`.
+        This is used to define `Arrow.__eq__` and `Arrow.__hash__`, see
+        :class:`discopy.abc.Setoid`.
 
         Abstract
         --------
@@ -399,11 +401,7 @@ class Arrow(FreeCategory, Testable["Arrow"]):
             return (self.inside, self.dom, self.cod)
         return generator.setoid()
 
-    def __eq__(self, other):
-        return isinstance(other, self.ar) and self.setoid() == other.setoid()
-
-    def __hash__(self):
-        return hash(self.setoid())
+    setoid_type = classproperty(lambda cls: cls.ar)
 
     def then(self, *others: Arrow) -> Arrow:
         """

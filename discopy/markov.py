@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 
 """
-The free Markov category, i.e. a semicartesian category with a supply of
-commutative comonoid, see :cite:t:`FritzLiang23`.
+The free Markov category, i.e. a symmetric category with a supply of
+commutative comonoids, also known as a copy-discard category.
+
+:cite:t:`FritzLiang23` reserve the name Markov for the copy-discard categories
+where discarding is natural, i.e. the semicartesian ones. Here it need not be:
+the name is only shorter.
 
 Summary
 -------

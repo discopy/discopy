@@ -9,6 +9,40 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- E-hypergraphs, `discopy.ehypergraph`, encoding a set of diagrams as an
+  open hypergraph whose wires sit in a union-find, stored as a table of
+  cells sharded by box. Each tree of the union-find is a vertex,
+  so merging two wires fuses two spiders and a vertex with more than one
+  producing cell holds alternatives, which a `Hypergraph` cannot express: it
+  reads the same incidence data as a Frobenius merge, and indeed
+  `(f + g).to_hypergraph()` raises today. E-hypergraphs over a symmetric
+  category are the arrows of a symmetric category, the tensor being their
+  disjoint union, composition the merge of the shared boundary and the swap
+  wiring, and a setoid whose `==` compares their incidence hypergraphs, so
+  the laws hold on the nose. As in `discopy.para`, the classes
+  `ehypergraph.Symmetric`, `Traced`, `Markov`, `Cartesian`, `Compact` and
+  `Frobenius` are parameterised by their underlying `category` and each
+  assumes more structure of it, specialising where its laws hold:
+  `from_diagram` lowers a diagram in one pass, turning permutations, traces
+  and, when cartesian, copy and discard into wiring; `canonize` yanks the
+  snakes of a compact category and fuses the spiders of a hypergraph
+  category, adding the straight wire or the fused spider next to what it
+  simplifies; `rebuild` closes congruence except over a Markov category,
+  whose boxes need not be deterministic, and `saturate` runs both to a
+  fixpoint. `equiv` decides equality modulo that structure, and
+  `to_diagram` reads back the cheapest section. Ported from the enrichment
+  of the `metatheory` equality-saturation engine, without its rewrite rules
+  ([#730](https://github.com/discopy/discopy/pull/730)).
+- A `utils.UnionFind` with union by size and path compression, labelling
+  each class by its least element so that comparing and printing it only
+  depends on the partition. It is used by `discopy.ehypergraph` and by the
+  three places that had their own copy: `CMap.from_glued`,
+  `Hypergraph.from_glued` and `Hypergraph.is_boundary_connected`
+  ([#730](https://github.com/discopy/discopy/pull/730)).
+- `abc.Setoid`, the equality and hash of a class given by a `setoid`
+  method, extracted from `cat.Arrow`, which now inherits it, and used by
+  `discopy.ehypergraph`
+  ([#730](https://github.com/discopy/discopy/pull/730)).
 - `grammar.abstract`, abstract categorial grammars after de Groote's
   *Towards abstract categorial grammars* (2001)
   ([#398](https://github.com/discopy/discopy/issues/398)).
@@ -644,6 +678,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- The docs of `discopy.markov` called its free category semicartesian, i.e.
+  with discarding natural, which it is not: it is a copy-discard category,
+  named Markov for brevity where Fritz reserves the name for the
+  semicartesian ones ([#730](https://github.com/discopy/discopy/pull/730)).
 - A regression test for `stream.Stream.__init__`'s codomain-mismatch
   `AxiomError`, which reports `cod`/`now.cod` rather than the `dom`/`now.dom`
   it once printed on both sides of `!=`. The message was corrected in passing
