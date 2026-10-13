@@ -13,4 +13,5 @@ USER's review of 2026-10-13, verbatim:
 - [x] rename `discopy.optics` to `discopy.lens`: `Optic` → `lens.Symmetric`, `Traced` → `lens.Traced`, `Lens` → `lens.Markov`, `to_lens`/`to_optic` → `to_markov`/`to_symmetric`; tests, images, docs, changelog follow
 - [x] answer the `negatives` thread: no dunder fits without going in a circle, asked USER for **A** (`lens.Ty` overrides `tensor`, `interaction.py` back to `main`) or **B** (keep a hook, renamed)
 - [ ] apply USER's answer on the `negatives` thread
+- [ ] apply USER's A/B on `lens.Markov` as a subclass of `lens.Symmetric`, asked on the PR
 - [x] retitle #757 (`Prism`) as `lens.Comarkov`
