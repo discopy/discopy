@@ -19,6 +19,15 @@ def test_Function():
     assert g.curry(left=False).uncurry(left=False)(1j, True) == g(1j, True)
 
 
+def test_tensor_unit_is_empty():
+    """ The unit of `tensor` is the empty argument list, so no operand can
+    swallow the ones that follow it. """
+    f, g = Function.id((int, )), Function.id((bool, ))
+    assert f.tensor() == f
+    assert f.tensor(g).dom == Ty(int, bool)
+    assert f.tensor(g, f).dom == Ty(int, bool, int)
+
+
 def test_fixed_point():
     from math import sqrt
     phi = Function(lambda x=1: 1 + 1 / x, dom=(float,), cod=(float,)).fix()

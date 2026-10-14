@@ -1522,9 +1522,6 @@ class Sum(cat.Sum, Box):
     >>> print(f @ (f + f))
     (f @ x >> x @ f) + (f @ x >> x @ f)
     """
-
-    ob = Ty
-
     @property
     def size(self):
         return 1
