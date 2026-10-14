@@ -611,8 +611,7 @@ We can iterate through the normalisation steps using the method `normalize` and 
 
 ```python {.marimo}
 rewrite_steps = spiral(4).normalize()
-Diagram.to_gif(*rewrite_steps, path="../_static/spiral.gif",
-               wire_labels=False, figsize=(4, 4), loop=True)
+Diagram.to_gif(*rewrite_steps, wire_labels=False, figsize=(4, 4), loop=True)
 ```
 
 This tutorial is still work-in-progress, stay tuned for the second half!
