@@ -20,6 +20,7 @@ Summary
     Layer
     Diagram
     Box
+    Hole
     Sum
     Bubble
     Functor
@@ -64,6 +65,7 @@ from warnings import warn
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
     ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
+from discopy.axioms import C1, axiom
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -781,6 +783,11 @@ class Layer(cat.Box, ColouredMonoid):
             if isinstance(box_or_typ, Box)]
 
     @property
+    def holes(self):
+        return tuple(dict.fromkeys(
+            hole for box in self.boxes for hole in box.holes))
+
+    @property
     def size(self):
         return sum(box.size for box in self.boxes)
 
@@ -1338,8 +1345,14 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             other : The diagram to substitute with.
         """
         left, _, right = self.inside[i].boxes_and_types
-        outside = Match(self[:i], self[i + 1:], left, right)
-        return outside.substitute(other)
+        return self[:i] >> left @ other @ right >> self[i + 1:]
+
+    @axiom
+    def fill_tensor(cls, filling: cat.Filling[C1]) -> Equation[C1]:
+        """ Filling a repeated hole fills every occurrence, across tensor. """
+        _, hole, _, inside = filling
+        return cls.equation_factory(
+            (hole @ hole).fill({hole: inside}), inside @ inside)
 
     def normalize(self, left=False) -> Iterator[Diagram]:
         """
@@ -1480,6 +1493,33 @@ class Box(cat.Box, Diagram):
 
     def to_drawing(self):
         return Drawing.from_box(self)
+
+
+class Hole(cat.Hole, Box):
+    """
+    A hole is a box standing for a diagram, drawn and printed as ``?name``.
+
+    Parameters:
+        name : The name of the hole.
+        dom : The domain of the hole, i.e. the input.
+        cod : The codomain of the hole, i.e. the output.
+
+    Example
+    -------
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f, g, h = Box('f', x, y), Box('g', y @ y, x), Hole('h', y, y @ y)
+    >>> diagram = f >> h >> g
+    >>> print(diagram)
+    f >> ?h >> g
+    >>> diagram.draw(doctest='docs/_static/monoidal/hole-example.svg')
+
+    .. image:: /_static/monoidal/hole-example.svg
+        :align: center
+
+    >>> copy = Box('copy', y, y @ y)
+    >>> assert diagram.fill({h: copy}) == f >> copy >> g
+    """
+    drawing_name = property(lambda self: "?" + self.name)
 
 
 class Sum(cat.Sum, Box):
@@ -1723,32 +1763,6 @@ class Functor(cat.Functor):
         return super().__call__(other)
 
 
-@dataclass
-class Match:
-    """ A match is a diagram with a hole, given by:
-
-    Parameters:
-        above : The diagram above the hole.
-        below : The diagram below the hole.
-        left : The wires left of the hole.
-        right : The wires right of the hole.
-    """
-
-    above: Diagram
-    below: Diagram
-    left: Ty
-    right: Ty
-
-    def substitute(self, target: Diagram) -> Diagram:
-        """
-        Substitute a diagram inside the hole.
-
-        Parameters:
-            target : The diagram to substitute inside the hole.
-        """
-        return self.above >> self.left @ target @ self.right >> self.below
-
-
 CMap = cmap.CMap[Diagram]
 
 
@@ -1799,6 +1813,7 @@ Diagram.to_gif = drawing.to_gif
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
+Diagram.hole_factory = Hole
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty

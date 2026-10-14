@@ -63,7 +63,7 @@ from collections.abc import Callable
 from discopy import monoidal
 from discopy.abc import BraidedCategory
 from discopy.cat import factory
-from discopy.monoidal import Ty, Match
+from discopy.monoidal import Ty
 from discopy.utils import (
     assert_isatomic, BinaryBoxConstructor, deprecated_alias, factory_name)
 
@@ -153,11 +153,11 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         else:
             source = braid(right_wires[0], box.dom) >> box @ right_wires[0]
             target = right_wires[0] @ box >> braid(right_wires[0], box.cod)
-        match = Match(above=self[:i] if down else self[:i - len(source) + 1],
-                      below=self[i + len(source):] if down else self[i + 1:],
-                      left=left_wires[:-1] if left else left_wires,
-                      right=right_wires if left else right_wires[1:])
-        return match.substitute(target)
+        above = self[:i] if down else self[:i - len(source) + 1]
+        below = self[i + len(source):] if down else self[i + 1:]
+        left_wires = left_wires[:-1] if left else left_wires
+        right_wires = right_wires if left else right_wires[1:]
+        return above >> left_wires @ target @ right_wires >> below
 
 
 class Box(monoidal.Box, Diagram):
