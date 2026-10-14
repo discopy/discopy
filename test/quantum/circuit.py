@@ -736,6 +736,16 @@ def test_quimb_pure_eval(c):
     assert np.allclose(t, c.eval().array), f"{t} != {c.eval().array}"
 
 
+@pytest.mark.parametrize('c', pure_circuits + mixed_circuits)
+def test_contract_quimb_eval(c):
+    assert c.eval(contract="quimb").is_close(c.eval())
+
+
+def test_contractor_and_contract():
+    with raises(ValueError):
+        H.eval(contractor=contractor, contract="quimb")
+
+
 def test_logical_vs_physical_swap():
     logical, physical = Circuit.swap(qubit, qubit), SWAP
 
