@@ -766,6 +766,39 @@ class TermBase(Box, Equivalence):
         """
         return all(other == self for other in others)
 
+    @staticmethod
+    def alpha_eq_bound(scopes, bodies, variables, depth=0) -> bool:
+        """
+        Whether bodies are alpha-equivalent under their scopes extended with
+        the variables each one binds, read as the levels from ``depth`` on,
+        the scopes being restored on the way out.
+
+        Parameters:
+            scopes : The scope of each body.
+            bodies : The bodies, one per scope.
+            variables : The variables each body binds, in order.
+            depth : The level of the first variable bound.
+
+        Example
+        -------
+        >>> x, y = Ty("x"), Ty("y")
+        >>> f, v, w = (y << x)("f"), Variable("v", x), Variable("w", x)
+        >>> scopes = [{v: 0}, {}]
+        >>> assert TermBase.alpha_eq_bound(scopes, [f(v), f(w)], [[v], [w]])
+        >>> assert scopes == [{v: 0}, {}]
+        """
+        shadowed = [{x: scope[x] for x in bound if x in scope}
+                    for scope, bound in zip(scopes, variables)]
+        for scope, bound in zip(scopes, variables):
+            scope.update({x: depth + i for i, x in enumerate(bound)})
+        result = bodies[0].alpha_eq_under(
+            scopes, list(bodies[1:]), depth + len(variables[0]))
+        for scope, bound, levels in zip(scopes, variables, shadowed):
+            for x in bound:
+                del scope[x]
+            scope.update(levels)
+        return result
+
     @classmethod
     def generate(cls, cod: Ty, choices: Sequence[int], types: Sequence[Ty],
                  letters: Sequence[str]) -> Term:
@@ -1121,17 +1154,9 @@ class Abstraction(TermBase):
                for other in others):
             return False
         terms = (self, *others)
-        shadowed = [scope.get(term.var) for scope, term in zip(scopes, terms)]
-        for scope, term in zip(scopes, terms):
-            scope[term.var] = depth
-        result = self.body.alpha_eq_under(
-            scopes, [other.body for other in others], depth + 1)
-        for scope, term, level in zip(scopes, terms, shadowed):
-            if level is None:
-                del scope[term.var]
-            else:
-                scope[term.var] = level
-        return result
+        return self.alpha_eq_bound(
+            scopes, [term.body for term in terms],
+            [[term.var] for term in terms], depth)
 
 
 type Term = Constant | Variable | Application | Abstraction

@@ -478,6 +478,34 @@ def test_alpha_eq_tells_free_from_bound():
     assert X(lambda x0: f(x0)).alpha_eq(X(lambda y: f(y)))
 
 
+def test_alpha_eq_compound():
+    X, Y = Ty("X"), Ty("Y")
+    f, g = (X >> Y)("f"), (X >> (Y * Y))("g")
+    x, y, z = Variable("x", X), Variable("y", Y), Variable("z", Y)
+    assert Tuple(x, f(x)).alpha_eq(Tuple(x, f(x)))
+    assert not Tuple(x, f(x)).alpha_eq(Tuple(f(x), x), Tuple(x))
+    assert Projection(Tuple(x, f(x)), 1).alpha_eq(
+        Projection(Tuple(x, f(x)), 1))
+    assert not Projection(Tuple(x, f(x)), 1).alpha_eq(
+        Projection(Tuple(x, f(x)), 0))
+    assert Let(f(x), (y, ), Tuple(y, y)).alpha_eq(
+        Let(f(x), (z, ), Tuple(z, z)))
+    assert not Let(f(x), (y, ), Tuple(y, y)).alpha_eq(
+        Let(f(x), (z, ), Tuple(z, y)))
+    assert not Let(f(x), (y, ), y).alpha_eq(
+        Let(f(Variable("w", X)), (y, ), y))
+    assert X(lambda x: let(f(x), lambda y: y)).alpha_eq(
+        X(lambda z: let(f(z), lambda w: w)))
+    assert Let(g(x), (y, z), Tuple(y, z)).alpha_eq(
+        Let(g(x), (z, y), Tuple(z, y)))
+    assert not Let(g(x), (y, z), Tuple(y, z)).alpha_eq(
+        Let(g(x), (y, z), Tuple(z, y)))
+    scopes = [{y: 0}, {}]
+    assert Let(f(x), (y, ), y).alpha_eq_under(
+        scopes, [Let(f(x), (z, ), z)], 1)
+    assert scopes == [{y: 0}, {}]
+
+
 def test_Sampler_nonlinear():
     X, Y = Ty("X"), Ty("Y")
     x0, x1 = Variable("x0", X), Variable("x1", X)

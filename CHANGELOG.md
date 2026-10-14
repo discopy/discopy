@@ -20,8 +20,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   at any binder. Free variables are compared by name, bound ones by their
   level, applications by their `left` flag and abstractions by the type
   they bind; `closed` terms inherit it and `grammar.categorial`'s type
-  raisings and binary compositions recurse into their subterms. Terms are
-  `Testable` in the
+  raisings and binary compositions recurse into their subterms, as do
+  `closed`'s tuples and projections, and a `let` statement binds its
+  variables at the levels of its binder as an abstraction binds one,
+  both through `TermBase.alpha_eq_bound`, which extends the scopes and
+  restores them. Terms are `Testable` in the
   sense of `discopy.axioms`: `TermBase.generate` builds a planar linear
   term of a given type from a sequence of choices and the letters naming
   its bound variables, through a `Sampler` with one method per kind of
