@@ -470,6 +470,29 @@ def test_Diagram_substitute():
     assert result == inside @ x >> x @ h
 
 
+def test_Hole():
+    """
+    Filling goes through tensor and inside a bubble, and the ``fill_*`` laws
+    of :class:`Diagram` hold on one filling in context: a diagram's strategy
+    draws :class:`cat.Box` until the level is enrolled (#670), so the
+    filling is built by hand rather than generated.
+    """
+    x, y = Ty('x'), Ty('y')
+    f, g = Hole('f', x, x), Box('g', x, x)
+    assert (f @ g >> f[::-1] @ x).holes == (f, )
+    assert (f @ f).fill({f: g}) == g @ g
+    assert f.bubble().fill({f: g}) == g.bubble()
+    assert str(f @ x) == "?f @ x" and f.drawing_name == "?f"
+    assert str(f[::-1]) == "?f[::-1]"
+    before, hole, after = Box('b', x, y @ x), Hole('h', y @ x, x), g
+    inside = Box('k', y, x) @ x >> Box('m', x @ x, x)
+    filling = Filling[Diagram](before, hole, after, inside)
+    assert Diagram.fill_nothing(before >> hole >> after)
+    for name, axiom in Diagram.axioms.items():
+        if name.startswith("fill_") and name != "fill_nothing":
+            assert axiom(filling), name
+
+
 def test_Diagram_normalize():
     x, y = Ty('x'), Ty('y')
     f0, f1 = Box('f0', x, y), Box('f1', y, x)

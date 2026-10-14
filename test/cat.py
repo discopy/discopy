@@ -338,6 +338,28 @@ def test_Bubble():
     assert str(f.bubble()) == "(f).bubble()"
 
 
+def test_Hole():
+    x, y = Ob('x'), Ob('y')
+    f, h, g = Hole('f', x, y), Hole('h', x, y), Box('g', y, x)
+    assert (f >> g >> f >> f[::-1]).holes == (f, )
+    assert (f + h).holes == (f, h) and (f.bubble() >> g).holes == (f, )
+    assert (f >> g >> f).fill({f: g[::-1]}) == g[::-1] >> g >> g[::-1]
+    assert (f >> f[::-1]).fill({f: g[::-1]}) == g[::-1] >> g
+    assert (f >> g >> h).fill({f: g[::-1]}) == g[::-1] >> g >> h
+    assert (f >> g).fill({}) == (f >> g).fill() == f >> g
+    assert f != Box('f', x, y) and f == Hole('f', x, y)
+    assert str(f[::-1]) == "?f[::-1]"
+    assert Hole.transparency(f) and loads(dumps(f)) == f
+    with raises(TypeError):
+        (f >> g).fill({Box('f', x, y): g[::-1]})
+    with raises(ValueError):
+        (f >> g).fill({f[::-1]: g})
+    with raises(AxiomError):
+        (f >> g).fill({f: g})
+    with raises(TypeError):
+        (f >> g).fill({f: 42})
+
+
 def test_Box_call():
     f = Box('f', Ob('x'), Ob('y'))
     with raises(TypeError):

@@ -12,4 +12,4 @@
 - [x] `braided.Diagram.naturality` without `Match`
 - [x] A `Hole` per level from `traced` to `frobenius`, mirroring `Box`
 - [x] `ehypergraph.Symmetric.holes`
-- [WIP] @omp-2026-10-14 17:35 Tests in `test/cat.py`, `test/monoidal.py` and `test/ehypergraph.py`, changelog entry
+- [x] Tests in `test/cat.py`, `test/monoidal.py` and `test/ehypergraph.py`, changelog entry
