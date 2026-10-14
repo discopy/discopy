@@ -13,6 +13,7 @@ Summary
 
     Diagram
     Box
+    Hole
     Braid
     Twist
     Sum
@@ -191,6 +192,10 @@ class Box(braided.Box, traced.Box, Diagram):
     """
 
 
+class Hole(braided.Hole, traced.Hole, Box):
+    """ A balanced hole is a braided and traced hole in a balanced diagram. """
+
+
 class Braid(braided.Braid, Box):
     """
     Braid in a balanced category.
@@ -363,6 +368,7 @@ class DualRail(Functor):
 
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 CMap = cmap.CMap[Diagram]
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid

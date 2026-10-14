@@ -211,3 +211,11 @@ def test_round_trip(diagram):
 def test_round_trip_levels(factory, diagram):
     graph = factory.from_diagram(diagram)
     assert graph.to_diagram().to_hypergraph() == diagram.to_hypergraph()
+
+
+def test_Symmetric_holes():
+    hole = frobenius.Hole('h', x, x)
+    graph = ehypergraph.Symmetric.from_diagram(h >> hole)
+    assert graph.holes == (hole, ) and len(graph.shards) == 2
+    assert F(h >> hole >> h).holes == (hole, ) and not F(h).holes
+    assert F(hole).to_diagram() == hole

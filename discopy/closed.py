@@ -26,6 +26,7 @@ Summary
     Substitution
     Diagram
     Box
+    Hole
     Eval
     Coeval
     Curry
@@ -313,6 +314,10 @@ class Box(markov.Box, biclosed.Box, Diagram):
     is_linear = True
 
 
+class Hole(markov.Hole, biclosed.Hole, Box):
+    """ A closed hole is a Markov and biclosed hole in a closed diagram. """
+
+
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
     drawing_name = "__call__"
@@ -481,6 +486,7 @@ CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.swap_factory = Swap

@@ -16,10 +16,12 @@ Summary
     FreeCategory
     Arrow
     Box
+    Hole
     Id
     Sum
     Bubble
     Functor
+    Filling
     Transformation
     Equation
 
@@ -73,20 +75,28 @@ We can check the axioms of dagger functors.
 Functors are bubble-preserving.
 
 >>> assert F(f.bubble()) == F(f).bubble()
+
+Holes are boxes with no inside, filled by the functor sending each one to
+an arrow of its boundary.
+
+>>> h = Hole('h', y, z)
+>>> assert (f >> h).fill({h: g}) == f >> g
 """
 
 from __future__ import annotations
 
 from functools import total_ordering, cached_property
 from typing import (
-    Callable, Mapping, Iterable, TYPE_CHECKING)
+    Callable, Mapping, Iterable, Self, TYPE_CHECKING)
 
 from discopy import messages, utils
 from discopy.abc import Category, Setoid
-from discopy.axioms import GENERATORS, Equation as AbstractEquation, Testable
+from discopy.axioms import (
+    C1, GENERATORS, Equation as AbstractEquation, Testable, axiom)
 from discopy.utils import (  # noqa: F401
     classproperty,
     factory,
+    NamedGeneric,
     factory_name,
     from_tree,
     rsubs,
@@ -280,6 +290,8 @@ class Arrow(FreeCategory, Testable["Arrow"], Setoid):
             then
             dagger
             bubble
+            holes
+            fill
 
     Tip
     ---
@@ -436,6 +448,95 @@ class Arrow(FreeCategory, Testable["Arrow"], Setoid):
     def bubble(self, *args, **kwargs) -> Bubble:
         """ Unary operator on homsets. """
         return self.bubble_factory(self, *args, **kwargs)
+
+    @property
+    def holes(self) -> tuple[Hole, ...]:
+        """
+        The distinct holes of an arrow, in order of first occurrence.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f, g = Hole('f', x, y), Box('g', y, x)
+        >>> assert (f >> g >> f >> f[::-1]).holes == (f, )
+        """
+        return tuple(dict.fromkeys(
+            hole for box in self.inside for hole in box.holes))
+
+    def fill(self, fillings: Mapping[Hole, Arrow] | None = None) -> Arrow:
+        """
+        Fill each hole with an arrow of its boundary, at once.
+
+        Filling is the functor sending each hole to its filling and every
+        other box to itself: the fillings are not looked into for holes, a
+        hole absent from the arrow is ignored, a hole absent from the
+        fillings stays and the dagger of a hole is filled by the dagger of
+        its filling.
+
+        Parameters:
+            fillings : A mapping from holes to arrows of the same boundary.
+
+        Raises:
+            TypeError : When a key is not a :class:`Hole` or a value is not
+                an arrow of this category.
+            ValueError : When a key is the dagger of a hole.
+            AxiomError : When a filling is not parallel to its hole.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f, h = Hole('f', x, y), Hole('h', x, y)
+        >>> g = Box('g', y, x)
+        >>> assert (f >> g >> f).fill({f: g[::-1]}) == g[::-1] >> g >> g[::-1]
+        >>> assert (f >> g >> h).fill({f: g[::-1]}) == g[::-1] >> g >> h
+        >>> assert (f >> g).fill({h: g[::-1]}) == f >> g
+        >>> assert (f >> g).fill() == f >> g
+        """
+        fillings = dict(fillings or {})
+        for hole, filling in fillings.items():
+            assert_isinstance(hole, self.hole_factory)
+            if hole.is_dagger:
+                raise ValueError(
+                    f"Fill {hole.dagger()} rather than its dagger.")
+            assert_isinstance(filling, self.ar)
+            assert_isparallel(hole, filling)
+        return self.functor_factory(
+            lambda x: x, lambda box: fillings.get(box, box))(self)
+
+    @axiom
+    def fill_nothing(cls, term: Self) -> AbstractEquation[C1]:
+        """ Filling nothing is the identity. """
+        return cls.equation_factory(term.fill(), term)
+
+    @axiom
+    def fill_hole(cls, filling: Filling[C1]) -> AbstractEquation[C1]:
+        """ A hole filled is its filling. """
+        _, hole, _, inside = filling
+        return cls.equation_factory(hole.fill({hole: inside}), inside)
+
+    @axiom
+    def fill_then(cls, filling: Filling[C1]) -> AbstractEquation[C1]:
+        """ Filling cuts the hole out and glues its filling in its place. """
+        before, hole, after, inside = filling
+        return cls.equation_factory(
+            (before >> hole >> after).fill({hole: inside}),
+            before >> inside >> after)
+
+    @axiom
+    def fill_twice(cls, filling: Filling[C1]) -> AbstractEquation[C1]:
+        """ Filling a hole with another hole and then that one is filling. """
+        _, hole, _, inside = filling
+        other = type(hole)(hole.name + "_", hole.dom, hole.cod)
+        return cls.equation_factory(
+            hole.fill({hole: other}).fill({other: inside}),
+            hole.fill({hole: inside}))
+
+    @axiom
+    def fill_dagger(cls, filling: Filling[C1]) -> AbstractEquation[C1]:
+        """ The dagger of a hole is filled by the dagger of its filling. """
+        _, hole, _, inside = filling
+        return cls.equation_factory(
+            hole.dagger().fill({hole: inside}), inside.dagger())
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
@@ -642,6 +743,11 @@ class Box(Arrow):
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
 
+    @property
+    def holes(self) -> tuple[Hole, ...]:
+        """ A box has no hole, see :class:`Hole`. """
+        return ()
+
     def setoid(self):
         """
         The equality and hash of a box is given by hashing its type as well as
@@ -672,6 +778,41 @@ class Box(Arrow):
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
         data, is_dagger = tree.get('data', None), 'is_dagger' in tree
         return cls(name=name, dom=dom, cod=cod, data=data, is_dagger=is_dagger)
+
+
+class Hole(Box):
+    """
+    A hole is a box with no inside, standing for an arrow of its domain and
+    codomain, to be filled with :meth:`Arrow.fill`.
+
+    Where a :class:`Bubble` is a box with an arrow inside and keeps its frame
+    under a functor, filling a hole splices the arrow in its place. Two holes
+    are the same hole when they have the same name, domain and codomain.
+
+    Parameters:
+        name : The name of the hole.
+        dom : The domain of the hole, i.e. the input.
+        cod : The codomain of the hole, i.e. the output.
+
+    Example
+    -------
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f, g = Hole('f', x, y), Box('g', y, x)
+    >>> assert (f >> g >> f).holes == (f, )
+    >>> assert (f >> g >> f).fill({f: g[::-1]}) == g[::-1] >> g >> g[::-1]
+    >>> print(f >> g)
+    ?f >> g
+    """
+    def __str__(self):
+        return "?" + str(self.name) + ("[::-1]" if self.is_dagger else '')
+
+    @property
+    def holes(self) -> tuple[Hole, ...]:
+        """
+        The hole itself, or the hole a daggered hole is the dagger of, since
+        :meth:`Arrow.fill` fills it through that one.
+        """
+        return (self.dagger(), ) if self.is_dagger else (self, )
 
 
 class Sum(Box):
@@ -760,6 +901,11 @@ class Sum(Box):
     def free_symbols(self):
         return {x for box in self.terms for x in box.free_symbols}
 
+    @property
+    def holes(self):
+        return tuple(dict.fromkeys(
+            hole for term in self.terms for hole in term.holes))
+
     def subs(self, *args):
         terms = tuple(f.subs(*args) for f in self.terms)
         return self.sum_factory(terms, self.dom, self.cod)
@@ -843,6 +989,11 @@ class Bubble(Box):
     @property
     def free_symbols(self):
         return super().free_symbols.union(*[f.free_symbols for f in self.args])
+
+    @property
+    def holes(self):
+        return tuple(dict.fromkeys(
+            hole for arg in self.args for hole in arg.holes))
 
     def dagger(self) -> Bubble:
         return type(self)(
@@ -996,6 +1147,39 @@ class Functor(Category):
 
 
 Arrow.generator_factory = Box
+Arrow.hole_factory = Hole
+Arrow.functor_factory = Functor
+
+
+class Filling(Testable, NamedGeneric["factory"], tuple):
+    """
+    A hole in context with a filling for it: a tuple ``(before, hole, after,
+    filling)`` with ``before >> hole >> after`` composable and ``filling``
+    parallel to ``hole``, the argument of the ``fill_*`` laws of
+    :class:`Arrow`.
+    """
+    def __new__(cls, before, hole, after, filling):
+        assert_iscomposable(before, hole)
+        assert_iscomposable(hole, after)
+        assert_isparallel(hole, filling)
+        return super().__new__(cls, (before, hole, after, filling))
+
+    @classmethod
+    def strategy(cls, **params):
+        """ Generate a hole, then its context and its filling around it. """
+        from hypothesis import strategies as st
+
+        factory = cls.factory
+
+        @st.composite
+        def filling(draw):
+            hole = draw(factory.hole_factory.strategy(**params))
+            inside = draw(factory.strategy(dom=hole.dom, cod=hole.cod))
+            before = draw(factory.strategy(cod=hole.dom))
+            after = draw(factory.strategy(dom=hole.cod))
+            return cls(before, hole, after, inside)
+
+        return filling()
 
 
 @factory

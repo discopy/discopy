@@ -15,6 +15,7 @@ Summary
     Layer
     Diagram
     Box
+    Hole
     Swap
     Sum
     Functor
@@ -417,6 +418,10 @@ class Box(balanced.Box, Diagram):
     """
 
 
+class Hole(balanced.Hole, Box):
+    """ A symmetric hole is a balanced hole in a symmetric diagram. """
+
+
 class Permutation(Box):
     """
     A permutation box, i.e. a :class:`Box` that reorders its input wires.
@@ -666,6 +671,7 @@ class Functor(balanced.Functor):
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation

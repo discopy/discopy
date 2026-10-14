@@ -9,6 +9,25 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Diagrams with holes: `cat.Hole` is a box with no inside, standing for an
+  arrow of its boundary, with one subclass per level from `monoidal` to
+  `frobenius` mirroring `Box`, printed and drawn as `?name`. `Arrow.holes`
+  lists the distinct holes of an arrow in order of first occurrence,
+  through bubbles and sums, and `Arrow.fill(fillings)` fills them all at
+  once: it is the endofunctor sending each hole to its filling and every
+  other box to itself, so a repeated hole is one hole, a hole absent from
+  the mapping stays, the dagger of a hole is filled by the dagger of its
+  filling and the fillings are not looked into. Where a `Bubble` keeps its
+  frame under a functor, filling splices the arrow in the hole's place, so
+  `monoidal.Match`, the one-hole diagram that `Diagram.substitute` and
+  `braided.Diagram.naturality` composed with, is deleted and both inline the
+  cut-and-glue. The laws are `@axiom`s on `cat.Arrow` — `fill_nothing`,
+  `fill_hole`, `fill_then`, `fill_twice`, `fill_dagger`, quantified over a
+  `cat.Filling`, a hole in context with a filling for it — and
+  `monoidal.Diagram.fill_tensor`, so they are cells of the property matrix.
+  `ehypergraph.Symmetric.holes` lists the holes of the live cells, a hole
+  being its own kind of cell even when named like a box
+  ([#803](https://github.com/discopy/discopy/issues/803)).
 - E-hypergraphs, `discopy.ehypergraph`, encoding a set of diagrams as an
   open hypergraph whose wires sit in a union-find, stored as a table of
   cells sharded by box. Each tree of the union-find is a vertex,

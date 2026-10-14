@@ -16,6 +16,7 @@ Summary
     Ty
     Diagram
     Box
+    Hole
     Cup
     Cap
     Functor
@@ -211,6 +212,10 @@ class Box(rigid.Box, Diagram):
         return result
 
 
+class Hole(rigid.Hole, Box):
+    """ A pivotal hole is a rigid hole in a pivotal diagram. """
+
+
 class Cup(rigid.Cup, Box):
     """
     A pivotal cup is a rigid cup of pivotal types.
@@ -253,6 +258,7 @@ class Functor(rigid.Functor):
 
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 CMap = cmap.CMap[Diagram]
 Id = Diagram.id

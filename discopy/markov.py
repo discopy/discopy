@@ -18,6 +18,7 @@ Summary
 
     Diagram
     Box
+    Hole
     Swap
     Permutation
     Copy
@@ -170,6 +171,10 @@ class Box(symmetric.Box, Diagram):
     """
 
 
+class Hole(symmetric.Hole, Box):
+    """ A Markov hole is a symmetric hole in a Markov diagram. """
+
+
 class Permutation(symmetric.Permutation, Box):
     """
     A permutation in a Markov category.
@@ -320,6 +325,7 @@ class Functor(symmetric.Functor):
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.swap_factory = Swap
