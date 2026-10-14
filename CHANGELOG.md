@@ -952,6 +952,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `fail-under` rises from 8.77 to 8.79, the score once the terms carry
+  their laws ([#767](https://github.com/discopy/discopy/pull/767)).
 - `fail-under` rises from 8.75 to 8.77, the score once `closed` gains its
   products and let statements
   ([#489](https://github.com/discopy/discopy/pull/489)).
