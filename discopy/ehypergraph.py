@@ -446,6 +446,25 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         return ((gid, ) + self[gid] for gid in range(len(self.rows))
                 if gid not in self.dead)
 
+    @property
+    def holes(self) -> tuple[Box, ...]:
+        """
+        The distinct holes of the live cells, in order of first occurrence,
+        as :attr:`discopy.cat.Arrow.holes` lists them. A hole named like a
+        box is its own kind of cell.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box, Hole
+        >>> x = Ty('x')
+        >>> f, h = Box('f', x, x), Hole('f', x, x)
+        >>> graph = Symmetric.from_diagram(f >> h)
+        >>> assert graph.holes == (h, )
+        >>> assert len(graph.shards) == 2
+        """
+        return tuple(dict.fromkeys(
+            hole for _, box, *_ in self.scan() for hole in box.holes))
+
     def congruence(self) -> bool:
         """
         Merge the outputs of every live cell with those of the first live cell
