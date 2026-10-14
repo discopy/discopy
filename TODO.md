@@ -7,7 +7,7 @@
 >
 > evaluate various options and their tradeoff and ask me questions about it
 
-- [ ] `cat.Hole`, `Arrow.holes`, `Arrow.fill`, `Filling` and the `fill_*` axioms, defined once in `discopy/cat.py`
+- [WIP] @omp-2026-10-14 16:55 `cat.Hole`, `Arrow.holes`, `Arrow.fill`, `Filling` and the `fill_*` axioms, defined once in `discopy/cat.py`
 - [ ] `monoidal.Hole` drawn as `?name`, `Layer.holes`, `Diagram.fill_tensor`, `Diagram.substitute` inlined and `Match` deleted
 - [ ] `braided.Diagram.naturality` without `Match`
 - [ ] A `Hole` per level from `traced` to `frobenius`, mirroring `Box`
