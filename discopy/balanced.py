@@ -40,7 +40,8 @@ from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import (  # noqa: F401  pylint: disable=unused-import
     Colour, Ty)
-from discopy.utils import factory_name, assert_isatomic
+from discopy.utils import factory_name, from_tree, assert_isatomic
+from discopy.axioms import axiom
 
 
 @dataclass(frozen=True)
@@ -190,6 +191,15 @@ class Box(braided.Box, traced.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
 
+    @classmethod
+    def strategy(cls, **params):
+        """Add twists to the inherited box distribution."""
+        base = super().strategy(**params)
+        factory = cls.ar.twist_factory
+        return cls.extend_strategy(
+            base, factory,
+            lambda factory: cls.atomic_strategy().map(factory), **params)
+
 
 class Braid(braided.Braid, Box):
     """
@@ -291,6 +301,15 @@ class Twist(Box):
     def dagger(self):
         return type(self)(self.dom, not self.is_dagger)
 
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)),
+                'dom': self.dom.to_tree()}
+        return dict(tree, is_dagger=True) if self.is_dagger else tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['dom']), is_dagger='is_dagger' in tree)
+
 
 class Sum(braided.Sum, Box):
     """
@@ -303,6 +322,7 @@ class Sum(braided.Sum, Box):
     """
 
 
+@factory
 class Functor(braided.Functor, traced.Functor):
     """
     A balanced functor is a braided functor that twists.
@@ -322,6 +342,16 @@ class Functor(braided.Functor, traced.Functor):
         if isinstance(other, Trace):
             return traced.Functor.__call__(self, other)
         return braided.Functor.__call__(self, other)
+
+    @axiom
+    def balanced(cls):
+        """
+        A balanced functor preserves the twist, but the twist of a composite
+        type is a chosen sequence of crossings, so like
+        :attr:`discopy.braided.Functor.braided` it holds only up to the
+        braid relations that free diagrams do not quotient by.
+        """
+        return NotImplemented
 
 
 class DualRail(Functor):
@@ -364,6 +394,9 @@ class DualRail(Functor):
 
 Diagram.functor_factory = Functor
 CMap = cmap.CMap[Diagram]
+CMap.braid_naturality = cmap.CMap.braid_naturality.inapplicable(
+    "A map wires its braids symmetrically, which balanced diagrams have "
+    "no swaps to decode.")
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
@@ -375,3 +408,6 @@ Id = Diagram.id
 
 class Equation(braided.Equation):
     """ The :class:`braided.Equation` of balanced diagrams. """
+
+
+Diagram.equation_factory = Equation

@@ -417,7 +417,13 @@ class Trace(markov.Trace, Box):
 
 
 class Copy(markov.Copy, Box):
-    "A markov copy in a closed category"
+    "A markov copy in a closed category."
+
+    is_linear = False
+
+
+class Merge(markov.Merge, Box):
+    "A markov merge in a closed category."
 
     is_linear = False
 
@@ -441,6 +447,7 @@ class Sum(markov.Sum, biclosed.Sum, Box):
         return all(term.is_linear for term in self.terms)
 
 
+@factory
 class Functor(biclosed.Functor, markov.Functor):
     """
     A closed functor is a markov functor that preserves evaluation, currying
@@ -479,10 +486,10 @@ class Functor(biclosed.Functor, markov.Functor):
 
 CMap = cmap.CMap[Diagram]
 
-
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
+Diagram.merge_factory = Merge
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.pack_factory = Pack
@@ -1187,3 +1194,6 @@ Ty.product_factory = Product
 
 class Equation(markov.Equation):
     """ The :class:`markov.Equation` of closed diagrams. """
+
+
+Diagram.equation_factory = Equation
