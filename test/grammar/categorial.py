@@ -87,6 +87,10 @@ def test_Diagram():
     assert Diagram.fx(x, y, z) == ForwardCrossedComposition(x << y, z >> y)
     assert Diagram.bx(x, y, z) == BackwardCrossedComposition(y << x, y >> z)
 
+    left, middle, right = x @ y, y @ z, z @ x
+    assert Diagram.fc(left, middle, right).cod == left << right
+    assert Diagram.bc(left, middle, right).cod == left >> right
+
 
 def test_BA_FA():
     X, Y = Ty('X'), Ty('Y')
