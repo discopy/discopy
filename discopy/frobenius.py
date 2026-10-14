@@ -20,6 +20,7 @@ Summary
     Dim
     Diagram
     Box
+    Hole
     Cup
     Cap
     Swap
@@ -177,6 +178,12 @@ class Box(compact.Box, markov.Box, Diagram):
         name (str) : The name of the box.
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
+    """
+
+
+class Hole(compact.Hole, markov.Hole, Box):
+    """
+    A frobenius hole is a compact and Markov hole in a frobenius diagram.
     """
 
 
@@ -387,6 +394,7 @@ def coherence(cls: type, factory: Callable
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.swap_factory, Diagram.spider_factory = Swap, Spider
 Diagram.permutation_factory = Permutation

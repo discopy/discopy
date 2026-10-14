@@ -10,6 +10,6 @@
 - [x] `cat.Hole`, `Arrow.holes`, `Arrow.fill`, `Filling` and the `fill_*` axioms, defined once in `discopy/cat.py`
 - [x] `monoidal.Hole` drawn as `?name`, `Layer.holes`, `Diagram.fill_tensor`, `Diagram.substitute` inlined and `Match` deleted
 - [x] `braided.Diagram.naturality` without `Match`
-- [WIP] @omp-2026-10-14 17:20 A `Hole` per level from `traced` to `frobenius`, mirroring `Box`
-- [ ] `ehypergraph.Symmetric.holes`
+- [x] A `Hole` per level from `traced` to `frobenius`, mirroring `Box`
+- [WIP] @omp-2026-10-14 17:30 `ehypergraph.Symmetric.holes`
 - [ ] Tests in `test/cat.py`, `test/monoidal.py` and `test/ehypergraph.py`, changelog entry

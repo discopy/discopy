@@ -23,6 +23,7 @@ Summary
     Layer
     Diagram
     Box
+    Hole
     Swap
     Feedback
     FollowedBy
@@ -440,6 +441,10 @@ class Box(markov.Box, Diagram):
         return markov.Box.setoid(self) + (self.time_step, )
 
 
+class Hole(markov.Hole, Box):
+    """ A feedback hole is a Markov hole in a feedback diagram. """
+
+
 class Permutation(markov.Permutation, Box):
     "A permutation in a feedback diagram."
 
@@ -667,6 +672,7 @@ class Functor(markov.Functor):
 
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge

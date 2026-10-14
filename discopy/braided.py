@@ -14,6 +14,7 @@ Summary
     Wire
     Diagram
     Box
+    Hole
     Braid
     Sum
     Functor
@@ -171,6 +172,10 @@ class Box(monoidal.Box, Diagram):
     """
 
 
+class Hole(monoidal.Hole, Box):
+    """ A braided hole is a monoidal hole in a braided diagram. """
+
+
 class Braid(BinaryBoxConstructor, Box):
     """
     The braiding of atomic types :code:`left` and :code:`right`.
@@ -261,6 +266,7 @@ class Functor(monoidal.Functor):
 
 Diagram.braid_factory = Braid
 Diagram.sum_factory = Sum
+Diagram.hole_factory = Hole
 Id = Diagram.id
 
 

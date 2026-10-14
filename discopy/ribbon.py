@@ -13,6 +13,7 @@ Summary
 
     Diagram
     Box
+    Hole
     Cup
     Cap
     Braid
@@ -162,6 +163,10 @@ class Box(pivotal.Box, balanced.Box, Diagram):
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
+
+
+class Hole(pivotal.Hole, balanced.Hole, Box):
+    """ A ribbon hole is a pivotal and balanced hole in a ribbon diagram. """
 
 
 class Cup(pivotal.Cup, Box):
@@ -362,6 +367,7 @@ Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.twist_factory = Twist
 Diagram.dual_rail_factory = DualRail
+Diagram.hole_factory = Hole
 
 Id = Diagram.id
 

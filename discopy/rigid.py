@@ -16,6 +16,7 @@ Summary
     Nat
     Diagram
     Box
+    Hole
     Cup
     Cap
     Sum
@@ -706,6 +707,10 @@ class Box(biclosed.Box, Diagram):
         return result
 
 
+class Hole(biclosed.Hole, Box):
+    """ A rigid hole is a biclosed hole in a rigid diagram. """
+
+
 class Sum(biclosed.Sum, Box):
     """
     A rigid sum is a biclosed sum that can be transposed.
@@ -885,6 +890,7 @@ biclosed.Diagram.to_rigid = to_rigid
 
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 
 Id = Diagram.id
 

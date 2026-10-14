@@ -19,6 +19,7 @@ Summary
 
     Diagram
     Box
+    Hole
     Trace
     Functor
 
@@ -182,6 +183,10 @@ class Box(monoidal.Box, Diagram):
     """
 
 
+class Hole(monoidal.Hole, Box):
+    """ A traced hole is a monoidal hole in a traced diagram. """
+
+
 class Trace(Box, monoidal.Bubble):
     """
     A trace is a diagram ``arg`` with an output wire fed back into an input.
@@ -263,6 +268,7 @@ class Functor(monoidal.Functor):
 CMap = cmap.CMap[Diagram]
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Diagram.trace_factory = Trace
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

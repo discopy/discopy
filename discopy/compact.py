@@ -13,6 +13,7 @@ Summary
 
     Diagram
     Box
+    Hole
     Cup
     Cap
     Swap
@@ -92,6 +93,10 @@ class Box(symmetric.Box, ribbon.Box, Diagram):
     """
 
 
+class Hole(symmetric.Hole, ribbon.Hole, Box):
+    """ A compact hole is a symmetric and ribbon hole in a compact diagram. """
+
+
 class Cup(ribbon.Cup, Box):
     """
     A compact cup is a ribbon cup in a compact diagram.
@@ -162,6 +167,7 @@ Id = Diagram.id
 
 Diagram.swap_factory = Swap
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 Diagram.permutation_factory = Permutation
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

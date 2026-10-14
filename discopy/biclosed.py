@@ -18,6 +18,7 @@ Summary
     Under
     Diagram
     Box
+    Hole
     Eval
     Coeval
     Curry
@@ -354,6 +355,10 @@ class Box(monoidal.Box, Diagram):
     """
 
 
+class Hole(monoidal.Hole, Box):
+    """ A biclosed hole is a monoidal hole in a biclosed diagram. """
+
+
 class Eval(Box):
     """
     The evaluation of an exponential type.
@@ -600,6 +605,7 @@ CMap = cmap.CMap[Diagram]
 
 
 Diagram.functor_factory = Functor
+Diagram.hole_factory = Hole
 
 
 class TermBase(Box):
