@@ -566,6 +566,12 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         The cheapest cells that produce a given boundary, i.e. one alternative
         for each vertex, together with the cells that produce nothing.
 
+        The cells are listed in topological order: every cell comes after the
+        cells of the section producing its inputs, ties and the rows of a
+        directed cycle in row order, so that
+        :meth:`discopy.hypergraph.Hypergraph.to_diagram` only traces a
+        genuine cycle.
+
         Parameters:
             boundary : The wires the section has to produce.
         """
@@ -580,7 +586,24 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
                 continue
             keep.add(gid)
             scan += list(self[gid][1])
-        return sorted(keep)
+        find, producers = self.uf.find, {}
+        for gid in keep:
+            for wire in self[gid][2]:
+                producers.setdefault(find(wire), set()).add(gid)
+        pending = {gid: {producer for wire in self[gid][1]
+                         for producer in producers.get(find(wire), ())
+                         if producer != gid} for gid in keep}
+        result = []
+        while pending:
+            ready = sorted(gid for gid, deps in pending.items() if not deps)
+            if not ready:
+                break
+            result += ready
+            for gid in ready:
+                del pending[gid]
+            for deps in pending.values():
+                deps.difference_update(ready)
+        return result + sorted(pending)
 
     @classmethod
     def from_diagram(cls, diagram: Diagram) -> Symmetric:
