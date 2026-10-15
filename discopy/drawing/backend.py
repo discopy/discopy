@@ -39,7 +39,7 @@ from PIL import Image, ImageSequence
 from discopy import config
 from discopy.drawing import Node, Point
 
-from discopy.config import (  # noqa: F401
+from discopy.config import (  # noqa: F401  pylint: disable=unused-import
     BOX_DRAWING_ATTRIBUTES as ATTRIBUTES,
     DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH,
     TRANSPARENT)
@@ -381,19 +381,22 @@ def bezier_subcurve(points, t0, t1):
 
 class Backend(ABC):
     """ Abstract drawing backend. """
-    def __init__(self, linewidth=1):
+    def __init__(self):
         self.max_width = 0
 
     def draw_text(self, text, i, j, **params):
         """ Draws a piece of text at a given position. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, i)
 
     def draw_node(self, i, j, **params):
         """ Draws a node for a given position, color and shape. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, i)
 
     def draw_polygon(self, *points, facecolor=None, edgecolor=None):
         """ Draws a polygon given a list of points. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
     @staticmethod
@@ -422,10 +425,12 @@ class Backend(ABC):
         """ Draws a wire from source to target, possibly with a Bezier.
         An ``adaptive`` wire lies on the neutral canvas, so its stroke may
         adapt to a dark page, see :meth:`Matplotlib.dark_gid`. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, source[0], target[0])
 
     def draw_bezier(self, points, adaptive=True):
         """ Draws a cubic Bezier curve from a list of four control points. """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(self.max_width, max(x for x, _ in points))
 
     @staticmethod
@@ -455,6 +460,7 @@ class Backend(ABC):
         is filled with ``color`` and drawn without an outline, e.g. behind the
         wires to colour the inside of a ribbon.
         """
+        # pylint: disable=unused-argument  # the base only measures the width
         points = [start] + [step[-1] for step in steps]
         self.max_width = max([self.max_width] + [x for x, _ in points])
 
@@ -547,6 +553,7 @@ class Backend(ABC):
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
+        # pylint: disable=unused-argument  # the base only measures the width
         spider_widths = [
             p.x for n, p in graph.positions.items()
             if n.kind == 'box' and n.box.draw_as_spider]
@@ -558,6 +565,7 @@ class Backend(ABC):
         """ Output the drawing. """
 
     def draw_boundary(self, graph, boundary_color="white", **params):
+        # pylint: disable=unused-argument  # params are a backend's
         x, y = graph.width, graph.height
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y),
@@ -714,6 +722,7 @@ class Backend(ABC):
         given as ``(top, control, bottom)`` triples spanning the same
         height band, see :meth:`region_cells`.
         """
+        # pylint: disable=unused-argument  # the base only measures the width
         self.max_width = max(
             self.max_width, max(x for x, _ in left + right))
 
@@ -831,6 +840,7 @@ class Backend(ABC):
         rails of two ribbons, filled with the colour of their region. A wide
         cup is flattened into a half ellipse, see :meth:`fold_depths`.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         xs = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
               for i in range(4)]
@@ -854,6 +864,7 @@ class Backend(ABC):
         rails of two ribbons, filled with the colour of their region. A wide
         cap is flattened into a half ellipse, see :meth:`fold_depths`.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         xs = [positions[Node("box_cod", i=i, j=j, x=box.cod[i])]
               for i in range(4)]
@@ -948,6 +959,7 @@ class Backend(ABC):
 
     def draw_discard(self, positions, node, **params):
         """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         for i in range(len(box.dom)):
             x = box.dom[i]
@@ -976,6 +988,7 @@ class Backend(ABC):
         Draws a :class:`discopy.balanced.DualRailBraid`, i.e. the two ribbons
         ``(0, 1)`` and ``(2, 3)`` crossing as a whole rather than wire by wire.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
                for i in range(len(box.dom))]
@@ -1005,6 +1018,7 @@ class Backend(ABC):
         Draws a :class:`discopy.balanced.DualRailTwist`, i.e. the two rails of
         a ribbon crossing each other twice in quick succession.
         """
+        # pylint: disable=unused-argument  # draw_boxes passes params to all
         box, j = node.box, node.j
         dom = [positions[Node("box_dom", i=i, j=j, x=box.dom[i])]
                for i in range(2)]

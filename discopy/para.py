@@ -145,10 +145,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from discopy import symmetric, markov, closed, feedback, compact, frobenius
+from discopy import symmetric, markov, closed, compact, frobenius
 from discopy.abc import (
     ClosedCategory, CompactCategory, FeedbackCategory, HypergraphCategory,
     MarkovCategory, NamedGeneric, SymmetricCategory, TracedCategory)
+from discopy.feedback import Diagram as FeedbackDiagram
 from discopy.utils import (
     assert_iscomposable, assert_isinstance, classproperty, unbiased)
 
@@ -403,7 +404,7 @@ class Feedback(Markov, FeedbackCategory):
     Parametric maps over a feedback underlying `category` form a feedback
     category, with :meth:`delay` applied to all five components.
     """
-    category = feedback.Diagram
+    category = FeedbackDiagram
 
     def delay(self, n_steps: int = 1) -> Feedback:
         """

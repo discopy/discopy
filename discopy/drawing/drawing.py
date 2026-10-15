@@ -714,7 +714,7 @@ class Drawing(TracedCategory, RichDisplay):
         return result
 
     @staticmethod
-    def id(dom: "monoidal.Ty" = None, length=0) -> Drawing:
+    def id(dom: "monoidal.Ty" = None) -> Drawing:
         """
         Draw the identity diagram.
 
