@@ -219,3 +219,25 @@ def test_Symmetric_holes():
     assert graph.holes == (hole, ) and len(graph.shards) == 2
     assert F(h >> hole >> h).holes == (hole, ) and not F(h).holes
     assert F(hole).to_diagram() == hole
+
+
+def test_Symmetric_section_order():
+    """
+    The cheapest section can drop to a cell added after the ones it feeds,
+    and is listed in topological order so that the diagram read back has
+    no spurious trace (#809).
+    """
+    x = symmetric.Ty('x')
+    h, k = symmetric.Box('h', x, x), symmetric.Box('k', x, x)
+    graph = ehypergraph.Symmetric.from_diagram(h >> h)
+    (_, _, src, _), (_, _, _, tgt) = graph.scan()
+    graph.merge(graph.lower(k, list(src))[0], tgt[0])
+    graph.rebuild()
+    assert graph.section(graph.cod_wires) == [2]
+    assert graph.to_diagram() == k
+    graph = ehypergraph.Symmetric.from_diagram(h >> h >> h)
+    cells = list(graph.scan())
+    graph.merge(graph.lower(k, list(cells[0][2]))[0], cells[1][3][0])
+    graph.rebuild()
+    assert graph.section(graph.cod_wires) == [3, 2]
+    assert graph.to_diagram() == k >> h

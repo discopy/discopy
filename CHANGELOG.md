@@ -697,6 +697,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `ehypergraph.Symmetric.section` lists its cells in topological order, a
+  directed cycle apart in row order, where it listed them by row so that
+  `to_diagram` traced every cell added after the ones it feeds, i.e. every
+  right-hand side a rewrite writes in. `Hypergraph.to_diagram` keeps reading
+  box order as layer order, which `Hypergraph.interchange` and `simplify`
+  rely on ([#809](https://github.com/discopy/discopy/issues/809)).
 - The docs of `discopy.markov` called its free category semicartesian, i.e.
   with discarding natural, which it is not: it is a copy-discard category,
   named Markov for brevity where Fritz reserves the name for the
