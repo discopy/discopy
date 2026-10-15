@@ -9,6 +9,16 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Quantum reservoir computing, `discopy.quantum.reservoir`: a `Reservoir`
+  is a fixed unitary on memory and input qubits, each input value induces
+  a channel from memory to memory, the features of a time series are the
+  Born probabilities of the memory qubits and only a ridge-regression
+  linear readout is trained, with a `Rydberg` reservoir as example
+  ([#519](https://github.com/discopy/discopy/pull/519),
+  [#586](https://github.com/discopy/discopy/pull/586)).
+- `Rydberg` in `discopy.quantum.ansatze`, the Trotterized time evolution
+  under the Rydberg Hamiltonian of Pasqal's neutral-atom QPU
+  ([#586](https://github.com/discopy/discopy/pull/586)).
 - `traced.Sum`, `pivotal.Sum`, `compact.Sum` and `frobenius.Sum`, the formal
   sum of morphisms at the four levels of the hierarchy that had none, each
   mirroring its `Diagram`'s own bases and wired into `Diagram.sum_factory`.
