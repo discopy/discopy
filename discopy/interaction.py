@@ -308,7 +308,7 @@ class Diagram(RibbonCategory, NamedGeneric['natural']):
             :align: center
         """
         x, u, y, v = tuple(self.dom) + tuple(self.cod)
-        x_, u_, y_, v_ = tuple(other.dom) + tuple(other.cod)
+        x_, _, _, v_ = tuple(other.dom) + tuple(other.cod)
         _braid = self.natural.braid
         inside = _braid(x, x_) @ _braid(v, v_).dagger()\
             >> x_ @ self.inside @ v_\

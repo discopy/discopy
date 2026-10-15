@@ -383,12 +383,19 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
 
         Parameters:
             n : The number of dimensions to trace.
+            left : Whether to trace the first ``n`` dimensions rather than
+                the last, by conjugating with swaps.
 
         Example
         -------
         >>> assert Matrix[bool].swap(1, 1).trace() == Matrix[bool].id(1)
+        >>> f = Matrix[bool]([[1, 1], [0, 0]], 2, 2)
+        >>> assert f.trace() == Matrix[bool]([[1]], 1, 1)
+        >>> assert f.trace(left=True) == Matrix[bool]([[0]], 1, 1)
         """
         dom, cod = index(self.dom) - n, index(self.cod) - n
+        if left:
+            return (self.swap(dom, n) >> self >> self.swap(n, cod)).trace(n)
         A, B, C, D = (row >> self >> column
                       for row in [self.id(dom) @ self.ones(n),
                                   self.ones(dom) @ self.id(n)]
