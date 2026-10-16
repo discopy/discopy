@@ -6,6 +6,7 @@ from pytest import raises
 
 from discopy.symmetric import *
 from discopy.axioms import assert_axioms
+from hypothesis import find
 from discopy.utils import AxiomError, dumps, loads
 
 
@@ -411,3 +412,6 @@ def test_coloured_Layer_boxes_and_types():
 
 def test_axioms():
     assert_axioms(Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())

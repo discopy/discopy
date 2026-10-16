@@ -5,6 +5,8 @@ from discopy.python import Function
 
 from discopy.markov import *
 from discopy.axioms import assert_axioms
+from hypothesis import find
+from discopy.utils import dumps, loads
 from discopy import *
 
 
@@ -82,3 +84,8 @@ def test_Permutation():
 
 def test_axioms():
     assert_axioms(Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())
+    x = Ty('x')
+    assert Copy(x, 3).dagger() == Merge(x, 3) and Merge(x).dagger() == Copy(x)

@@ -1214,7 +1214,8 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
         def with_scalars(draw):
             result, empty = draw(diagrams()), cls.ob()
             for _ in range(draw(st.integers(min_value=0, max_value=2))):
-                result @= draw(diagrams(dom=empty, cod=empty))
+                result @= draw(cls.box_factory.strategy(
+                    types=types, dom=empty, cod=empty))
             return result
 
         return with_scalars()

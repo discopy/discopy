@@ -3,6 +3,8 @@ from pytest import raises
 from discopy.monoidal import Colour
 from discopy.rigid import *
 from discopy.axioms import assert_axioms
+from hypothesis import find
+from discopy.utils import dumps, loads
 
 
 def test_Ob_init():
@@ -198,3 +200,6 @@ def test_functor_factory():
 
 def test_axioms():
     assert_axioms(Ty, Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())

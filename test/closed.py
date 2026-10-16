@@ -5,6 +5,7 @@ from pytest import raises
 from discopy import biclosed
 from discopy.closed import *
 from discopy.axioms import assert_axioms
+from hypothesis import find
 from discopy.utils import dumps, loads
 
 
@@ -567,3 +568,6 @@ def test_compound_name_is_lazy():
 
 def test_axioms():
     assert_axioms(Ty, Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())

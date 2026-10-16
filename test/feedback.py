@@ -4,6 +4,8 @@ from random import choice, seed
 from discopy import *
 from discopy.feedback import *
 from discopy.axioms import assert_axioms
+from hypothesis import find
+from discopy.utils import dumps, loads
 
 
 def test_invalid_inputs():
@@ -102,3 +104,9 @@ def test_Permutation_delay():
 
 def test_axioms():
     assert_axioms(Ty, Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())
+    assert Wire.strategy(dom=monoidal.Colour('red')).is_empty
+    with raises(AxiomError):
+        find(Feedback.strategy(), lambda _: True).dagger()

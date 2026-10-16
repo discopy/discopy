@@ -766,6 +766,9 @@ def test_List():
 
 def test_axioms():
     assert_axioms(Ty, Nat, Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())
 
 
 def test_strategy():
@@ -783,4 +786,12 @@ def test_strategy():
     assert (layer.dom, layer.cod) == (x @ y, y @ x)
     assert Layer.strategy(diagram=Diagram, dom=Ty(), cod=Ty()).is_empty
     assert Diagram.generators == ()
-    assert Box.strategy().example().ar is Diagram
+    assert find(Box.strategy(), lambda _: True).ar is Diagram
+    assert find(Diagram.strategy(min_leaves=2), lambda _: True).size >= 2
+    assert find(Diagram.strategy(boundary_connected=True), lambda d: d.size)
+    assert find(Dim.strategy(), lambda dim: len(dim) == 2) == Dim(2, 2)
+    assert Dim.strategy(cod=Colour('red')).is_empty
+    assert loads(dumps(Dim(2, 3))) == Dim(2, 3)
+    assert find(Ty.strategy(max_length=0), lambda _: True) == Ty()
+    assert find(Diagram.strategy(), lambda d: any(
+        box.dom == Ty() == box.cod for box in d.boxes))

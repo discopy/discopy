@@ -257,7 +257,7 @@ class Merge(Box):
         Box.__init__(self, name, dom=x ** n, cod=x,
                      draw_as_spider=True, color="black", drawing_name="")
 
-    strategy = Copy.strategy
+    strategy = classmethod(Copy.strategy.__func__)
 
     def dagger(self) -> Merge:
         return self.ar.copy_factory(self.cod, len(self.dom))
