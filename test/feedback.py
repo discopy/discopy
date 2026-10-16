@@ -3,6 +3,7 @@ from random import choice, seed
 
 from discopy import *
 from discopy.feedback import *
+from discopy.axioms import assert_axioms
 
 
 def test_invalid_inputs():
@@ -97,3 +98,7 @@ def test_Permutation_delay():
     assert perm.delay(2) == perm.delay().delay()
     assert (perm >> Swap(z, x) @ y).delay()\
         == perm.delay() >> Swap(z, x).delay() @ y.delay()
+
+
+def test_axioms():
+    assert_axioms(Ty, Diagram)

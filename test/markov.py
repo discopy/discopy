@@ -4,6 +4,7 @@ from pytest import raises
 from discopy.python import Function
 
 from discopy.markov import *
+from discopy.axioms import assert_axioms
 from discopy import *
 
 
@@ -77,3 +78,7 @@ def test_Permutation():
     assert Permutation(x @ y, [1, 0]) == Swap(x, y)
     assert issubclass(Swap, Permutation)
     assert Equation(perm, perm.to_swaps())
+
+
+def test_axioms():
+    assert_axioms(Diagram)

@@ -63,7 +63,8 @@ from warnings import warn
 
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
-    ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric)
+    ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric, classproperty)
+from discopy.axioms import GENERATORS
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -127,6 +128,22 @@ class Colour(cat.Ob):
 transparent = Colour(TRANSPARENT)
 
 
+def is_monochrome(dom: Colour, cod: Colour) -> bool:
+    """
+    Whether a boundary is one a monochrome type can have.
+
+    A monochrome type — a natural number, a dimension, a feedback wire — is
+    transparent on both sides whatever it is built from, so a strategy asked
+    for one with a colour is asked for a term that does not exist.
+    :obj:`None` is a boundary left unspecified, which every type can have.
+
+    Parameters:
+        dom : The domain asked for.
+        cod : The codomain asked for.
+    """
+    return dom in (None, transparent) and cod in (None, transparent)
+
+
 class Wire(cat.Ob):
     """A generating 1-cell with a colour on either side."""
 
@@ -137,6 +154,14 @@ class Wire(cat.Ob):
         self.is_dagger = is_dagger
         self.dom, self.cod = dom, cod
         super().__init__(name)
+
+    @classmethod
+    def strategy(cls, *, dom=transparent, cod=transparent):
+        """ Generate a named wire between the given colours. """
+        from hypothesis import strategies as st
+
+        return st.sampled_from(GENERATORS).map(
+            lambda name: cls(name, dom=dom, cod=cod))
 
     def __setstate__(self, state):
         state.setdefault('dom', transparent)
@@ -290,6 +315,34 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
     """
     ob = Colour
     generator_factory = Wire
+
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=3,
+                 dom=transparent, cod=transparent):
+        """
+        Generate a word of generating wires, composable from the colour
+        ``dom`` to the colour ``cod``, of a bounded length: one wire is as
+        likely as any other length, so that the atomic types the structural
+        boxes are built on are drawn often.
+        """
+        from hypothesis import strategies as st
+
+        @st.composite
+        def words(draw):
+            source = transparent if dom is None else dom
+            target = transparent if cod is None else cod
+            minimum = max(min_length, int(source != target))
+            lengths = st.integers(min_value=minimum, max_value=max_length)
+            if minimum <= 1 <= max_length:
+                lengths = st.one_of(st.just(1), lengths)
+            length = draw(lengths)
+            if not length:
+                return cls(dom=source, cod=target)
+            colours = [source] + (length - 1) * [transparent] + [target]
+            return cls(*(draw(cls.generator_factory.strategy(
+                dom=colours[i], cod=colours[i + 1])) for i in range(length)))
+
+        return words()
 
     def cast_wire(self, x: str | cat.Ob) -> cat.Ob:
         """
@@ -539,6 +592,20 @@ class Nat(abc.Nat, Ty):
         self.dom = self.cod = transparent
         cat.Ob.__init__(self, type(self).__name__)
 
+    identity_typing = Ty.identity_typing.inapplicable(
+        "A natural number is monochrome: its identity ignores the colour.")
+
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=3,
+                 dom=transparent, cod=transparent):
+        """ Generate a small natural number, transparent on both sides. """
+        from hypothesis import strategies as st
+
+        if not is_monochrome(dom, cod):
+            return st.nothing()
+        return st.integers(min_value=min_length, max_value=max_length).map(
+            cls)
+
     def __setstate__(self, state):
         if "n" not in state:
             state = {"n": len(state["_objects"])}
@@ -611,6 +678,19 @@ class Dim(Ty):
             transparent if cod is None else cod, _scan=False)
         cat.Ob.__init__(self, type(self).__name__)
 
+    @classmethod
+    def strategy(cls, *, min_length=0, max_length=2, max_dim=3,
+                 dom=transparent, cod=transparent):
+        """ Generate a small dimension, transparent on both sides. """
+        from hypothesis import strategies as st
+
+        if not is_monochrome(dom, cod):
+            return st.nothing()
+        return st.lists(
+            st.integers(min_value=2, max_value=max_dim),
+            min_size=min_length, max_size=max_length).map(
+                lambda inside: cls(*inside))
+
     def __getitem__(self, key: int | slice) -> Dim:
         if isinstance(key, slice):
             return self.factory(*self.inside[key])
@@ -620,6 +700,14 @@ class Dim(Ty):
         return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
 
     __str__ = __repr__
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'inside': list(self.inside)}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*tree['inside'])
 
 
 class Layer(cat.Box, ColouredMonoid):
@@ -843,6 +931,89 @@ class Layer(cat.Box, ColouredMonoid):
     def generator(self):
         return self.boxes_or_types[0] if self.is_generator else None
 
+    @classmethod
+    def strategy(
+            cls, *, diagram, types=None, dom=None, cod=None,
+            label=None, exclude=(), max_boxes=2):
+        """
+        Generate a layer of the boxes of a ``diagram`` class.
+
+        A layer with neither boundary asked for is one box, drawn by the
+        :attr:`Diagram.box_factory` of the ``diagram``. A boundary asked for
+        is cut into a type on either side of each box, with the boxes drawn
+        free between the cuts: at most ``max_boxes`` of them when both
+        boundaries are asked for, one when only one is.
+
+        Parameters:
+            diagram : The diagram class the layer is a layer of.
+            types : The strategy the free boxes draw their boundaries from.
+            dom : The domain asked for, if any.
+            cod : The codomain asked for, if any.
+            label : A prefix for the names of the free boxes.
+            exclude : Boxes the layer is not to contain, so that a diagram
+                never draws the same box twice.
+            max_boxes : The number of boxes in a layer with both boundaries.
+        """
+        from hypothesis import strategies as st
+
+        types = diagram.ob.strategy() if types is None else types
+        boxes, exclude = diagram.box_factory, frozenset(exclude)
+
+        def fresh(strategy):
+            return strategy.filter(lambda box: box not in exclude)
+
+        if dom is None and cod is None:
+            return fresh(boxes.strategy(types=types, label=label)).map(cls)
+
+        def free_layer(placement):
+            plumbing, boundaries = placement
+            return st.tuples(*(
+                fresh(boxes.strategy(
+                    types=types, dom=box_dom, cod=box_cod, label=label))
+                for box_dom, box_cod in boundaries)).map(
+                    lambda drawn: cls(*(
+                        part
+                        for typ, box in zip(plumbing, drawn)
+                        for part in (typ, box)), plumbing[-1]))
+
+        def decompositions(source, target, n_boxes):
+            """ Alternate shared types with the boundaries of each box. """
+            if not n_boxes:
+                if source == target:
+                    yield (source, ), ()
+                return
+            for i in range(min(len(source), len(target)) + 1):
+                if source[:i] != target[:i]:
+                    break
+                for j in range(len(source) - i + 1):
+                    for k in range(len(target) - i + 1):
+                        if not j and not k:
+                            continue
+                        for rest, pairs in decompositions(
+                                source[i + j:], target[i + k:], n_boxes - 1):
+                            yield (source[:i], ) + rest, (
+                                (source[i:i + j], target[i:i + k]), ) + pairs
+
+        if dom is None or cod is None:
+            boundary, is_dom = (dom, True) if dom is not None else (cod, False)
+            placements = [
+                ((boundary[:i], boundary[j:]),
+                 ((boundary[i:j], None) if is_dom
+                  else (None, boundary[i:j]), ))
+                for i in range(len(boundary) + 1)
+                for j in range(i, len(boundary) + 1)]
+        else:
+            placements = [
+                placement
+                for n_boxes in range(1, max_boxes + 1)
+                for placement in decompositions(dom, cod, n_boxes)]
+        if dom:
+            placements = [
+                placement for placement in placements
+                if all(box_dom for box_dom, _ in placement[1])]
+        return st.sampled_from(placements).flatmap(free_layer)\
+            if placements else st.nothing()
+
     def dagger(self) -> Layer:
         return type(self)(*(
             x if isinstance(x, Ty) else x.dagger() for x in self),
@@ -942,6 +1113,7 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
     """
     ob = Ty
     layer_factory = Layer
+    box_factory = None
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -958,6 +1130,94 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
                 if not layer.boxes:
                     raise ValueError(messages.LAYERS_MUST_HAVE_A_BOX)
         super().__init__(inside, dom, cod, _scan=_scan)
+
+    @classproperty
+    def generators(cls) -> tuple[type[Box], ...]:
+        """
+        The structural boxes of the free category, i.e. the box classes
+        among its factories that draw themselves with a :meth:`strategy` of
+        their own: :class:`discopy.braided.Braid` for
+        :attr:`discopy.braided.Diagram.braid_factory`,
+        :class:`discopy.markov.Copy` for
+        :attr:`discopy.markov.Diagram.copy_factory` and so on. A box class
+        of another category, e.g. the braids a symmetric diagram inherits
+        from a balanced one, and a factory that is a method rather than a
+        class are left out.
+
+        Example
+        -------
+        >>> assert Diagram.generators == ()
+        >>> from discopy import braided, symmetric
+        >>> assert braided.Diagram.generators == (braided.Braid, )
+        >>> assert braided.Braid not in symmetric.Diagram.generators
+        """
+        factories = {
+            name: value
+            for base in reversed(cls.__mro__)
+            for name, value in vars(base).items()
+            if name.endswith("_factory")}
+        return tuple(dict.fromkeys(
+            factory for factory in factories.values()
+            if isinstance(factory, type) and issubclass(factory, cls)
+            and factory.strategy.__func__ is not Box.strategy.__func__))
+
+    @classmethod
+    def strategy(
+            cls, *, types=None, min_leaves=None, max_leaves=3,
+            boundary_connected=False, dom=None, cod=None):
+        """
+        Generate a diagram layer by layer, each layer drawn by
+        :meth:`Layer.strategy` from the codomain of the one before, the
+        last one with the codomain asked for, and no box drawn twice, so
+        that every box of the diagram is a distinct generator.
+
+        Parameters:
+            types : The strategy the boxes draw their boundaries from.
+            min_leaves : The least number of layers.
+            max_leaves : The most number of layers.
+            boundary_connected : Whether every box is to be reached from the
+                boundary, i.e. no scalar is tensored on the side.
+            dom : The domain asked for, if any.
+            cod : The codomain asked for, if any.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy(min_length=1) if types is None else types
+
+        @st.composite
+        def diagrams(draw, dom=dom, cod=cod):
+            minimum = 0 if min_leaves is None else min_leaves
+            if dom is not None and cod is not None and dom != cod:
+                minimum = max(1, minimum)
+            n_layers = draw(st.integers(
+                min_value=minimum, max_value=max_leaves))
+            if not n_layers:
+                source = dom if dom is not None else (
+                    cod if cod is not None else draw(types))
+                return cls((), source, source, _scan=False)
+            layers, boxes, source = [], set(), dom
+            for i in range(n_layers):
+                layer = draw(cls.layer_factory.strategy(
+                    diagram=cls, types=types, dom=source,
+                    cod=cod if i == n_layers - 1 else None,
+                    label=i, exclude=boxes))
+                layers.append(layer)
+                boxes.update(layer.boxes)
+                source = layer.cod
+            return cls(tuple(layers), layers[0].dom, layers[-1].cod,
+                       _scan=False)
+
+        if boundary_connected:
+            return diagrams()
+
+        @st.composite
+        def with_scalars(draw):
+            result, empty = draw(diagrams()), cls.ob()
+            for _ in range(draw(st.integers(min_value=0, max_value=2))):
+                result @= draw(diagrams(dom=empty, cod=empty))
+            return result
+
+        return with_scalars()
 
     @property
     def size(self):
@@ -1458,6 +1718,56 @@ class Box(cat.Box, Diagram):
         :align: center
     """
 
+    def __init_subclass__(cls, **params):
+        """
+        A box class listing its diagram class among its bases is the free
+        box of that category, e.g. :class:`discopy.braided.Box` for
+        :class:`discopy.braided.Diagram`, so it registers itself as its
+        :attr:`Diagram.box_factory` rather than every module assigning it.
+        This does not fire for :class:`Box` itself, which the end of this
+        module assigns by hand.
+        """
+        super().__init_subclass__(**params)
+        if cls.ar in cls.__bases__:
+            cls.ar.box_factory = cls
+
+    @classmethod
+    def strategy(cls, *, types=None, dom=None, cod=None, label=None):
+        """
+        Generate a box: a free one, with a fresh name and the given, or
+        arbitrary, boundaries, or, when no boundary is asked for, any of the
+        :attr:`Diagram.generators` of its category, each drawing itself.
+
+        Parameters:
+            types : The strategy a free box draws its boundaries from.
+            dom : The domain asked for, if any.
+            cod : The codomain asked for, if any.
+            label : A prefix for the name of a free box.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+        doms = types if dom is None else st.just(dom)
+        cods = types if cod is None else st.just(cod)
+        names = st.uuids().map(
+            lambda name: str(name) if label is None else f"{label}:{name}")
+        free = st.tuples(names, doms, cods).map(lambda args: cls(*args))
+        if dom is not None or cod is not None or cls is not cls.ar.box_factory:
+            return free
+        return st.one_of(free, *(
+            generator.strategy(types=types)
+            for generator in cls.ar.generators))
+
+    @classmethod
+    def atomic_strategy(cls, types=None):
+        """
+        Generate an atomic type, from ``types`` if given: what the structural
+        boxes are built on, since a box of a composite type is a diagram of
+        boxes of its atoms.
+        """
+        types = cls.ob.strategy() if types is None else types
+        return types.filter(lambda typ: len(typ) == 1)
+
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         dom = dom if isinstance(dom, self.ob) else self.ob(dom)
         cod = cod if isinstance(cod, self.ob) else self.ob(cod)
@@ -1797,6 +2107,7 @@ class Equation(cat.Equation, RichDisplay):
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 
+Diagram.box_factory = Box
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.functor_factory = Functor

@@ -6,6 +6,7 @@ from pytest import raises
 
 from discopy.cat import *
 from discopy.monoidal import *
+from discopy.axioms import assert_axioms
 from discopy.drawing import spiral
 from discopy.utils import AxiomError, from_tree
 
@@ -761,3 +762,25 @@ def test_List():
     assert eval(repr(Ty.id(red))) == Ty.id(red)
     with raises(AxiomError):
         Ty(Wire('x', red, red), Wire('y'))
+
+
+def test_axioms():
+    assert_axioms(Ty, Nat, Diagram)
+
+
+def test_strategy():
+    from hypothesis import find
+    x, y = Ty('x'), Ty('y')
+    assert find(Ty.strategy(), lambda typ: len(typ) == 3)
+    assert find(Nat.strategy(), lambda n: n == Nat(2)) == Nat(2)
+    assert Nat.strategy(dom=Colour('red')).is_empty
+    assert find(Box.atomic_strategy(), lambda _: True) == Ty('a')
+    assert find(Diagram.strategy(dom=x, cod=y), lambda _: True).dom == x
+    assert find(Diagram.strategy(cod=y), lambda _: True).cod == y
+    assert find(Diagram.strategy(dom=x, cod=x), lambda _: True) == Id(x)
+    layer = find(Layer.strategy(diagram=Diagram, dom=x @ y, cod=y @ x),
+                 lambda layer: len(layer.boxes) == 2)
+    assert (layer.dom, layer.cod) == (x @ y, y @ x)
+    assert Layer.strategy(diagram=Diagram, dom=Ty(), cod=Ty()).is_empty
+    assert Diagram.generators == ()
+    assert Box.strategy().example().ar is Diagram
