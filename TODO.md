@@ -21,5 +21,5 @@
 > READ DOCS AND EXAMPLES AND SOURCE CODE IN FULL
 
 - [x] `Symmetric.lower_rule`, `lower_equation`, `candidates`, `binding`, `match`
-- [ ] `Symmetric.rewrite`, `close`, `saturate(equations, fuel, until)`, `equiv(other, equations)`, `Markov.congruence`
+- [WIP] @claude-2026-10-16 15:16 `Symmetric.rewrite`, `close`, `saturate(equations, fuel, until)`, `equiv(other, equations)`, `Markov.congruence`
 - [ ] Tests in `test/ehypergraph.py`, module docstring and changelog
