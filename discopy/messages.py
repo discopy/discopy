@@ -27,6 +27,10 @@ ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
 WRONG_COD = "Expected inside.cod == {}, got {} instead."
+UNBOUND_HOLE = "The right-hand side {} has a hole the left-hand side {} does "\
+               "not."
+UNBOUND_WIRE = "The right-hand side {} uses an interface wire that no cell "\
+               "of the left-hand side {} binds."
 COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"
 NOT_FROBENIUS = \
     "{} has no spiders, cups or caps to downgrade this hypergraph."

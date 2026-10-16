@@ -110,6 +110,9 @@ def test_Markov_rebuild():
     (u, ), (v, ) = graph.intern(f, (a, )), graph.intern(f, (a, ))
     graph.rebuild()
     assert graph.uf.find(u) != graph.uf.find(v)
+    graph.merge(u, v)
+    graph.rebuild()
+    assert [gid for gid, *_ in graph.scan()] == [0]
 
 
 def test_Frobenius_laws():
@@ -241,3 +244,91 @@ def test_Symmetric_section_order():
     graph.rebuild()
     assert graph.section(graph.cod_wires) == [3, 2]
     assert graph.to_diagram() == k >> h
+
+
+def test_Symmetric_match():
+    x = symmetric.Ty('x')
+    S = ehypergraph.Symmetric.from_diagram
+    f, g = symmetric.Box('f', x, x), symmetric.Box('g', x, x)
+    h, k = symmetric.Hole('h', x, x), symmetric.Hole('k', x, x)
+    graph = S(f >> g >> f)
+    assert list(graph.match(S(f >> g))) == [(0, 1)]
+    assert list(graph.match(S(g >> g))) == []
+    assert list(graph.match(S(symmetric.Id(x)))) == [()]
+    assert list(graph.match(S(h))) == [(0, ), (1, ), (2, )]
+    assert list(graph.match(S(h >> h))) == []
+    assert list(graph.match(S(h >> k))) == [(0, 1), (1, 2)]
+    assert graph.binding(S(f >> g), (0, 1)) == {0: 0, 1: 1, 2: 2}
+    assert graph.binding(S(h), (1, ))[h] == g
+    assert graph.binding(S(f >> g), (1, 0)) is None
+
+
+def test_Symmetric_lower_rule():
+    x, y = symmetric.Ty('x'), symmetric.Ty('y')
+    f, k = symmetric.Box('f', x, x), symmetric.Box('k', x, x)
+    lower_rule = ehypergraph.Symmetric.lower_rule
+    with raises(AxiomError):
+        lower_rule(f, symmetric.Box('g', x, y))
+    with raises(ValueError):
+        lower_rule(f, symmetric.Hole('h', x, x))
+    with raises(ValueError):
+        lower_rule(f @ x, f @ k)
+    swap = symmetric.Swap(x, x)
+    pattern, rule = lower_rule(f @ x >> swap, swap >> x @ f)
+    assert len(pattern.rows) == 1 and len(rule.rows) == 2
+    t = symmetric.Box('t', x @ x, x @ x)
+    pattern, rule = Traced.lower_rule(t.trace(), t.trace())
+    assert len(pattern.rows) == 1 and len(rule.rows) == 2
+
+
+def test_Symmetric_saturate():
+    x = symmetric.Ty('x')
+    S, Equation = ehypergraph.Symmetric.from_diagram, symmetric.Equation
+    f, g, k = (symmetric.Box(name, x, x) for name in "fgk")
+    rule = Equation(f >> g, k)
+    assert S(f >> g).saturate([rule]).to_diagram() == k
+    assert S(f >> g).equiv(S(k), [rule]) and S(k).equiv(S(f >> g), [rule])
+    assert not S(f >> g).equiv(S(k))
+    assert len(S(k).saturate([Equation(f >> g, k, symbol="->")]).rows) == 1
+    assert len(S(k).saturate([Equation(k, f >> g, symbol="->")]).rows) == 3
+    assert len(S(k).saturate([Equation(k, f >> g)]).rows) == 3
+    grow = Equation(k, f >> k, symbol="->")
+    assert [len(S(k).saturate([grow], fuel=fuel).rows)
+            for fuel in (0, 1, 2)] == [1, 3, 5]
+    until = lambda graph: len(graph.rows) >= 3
+    assert len(S(k).saturate([grow], until=until).rows) == 3
+
+
+def test_Symmetric_associativity():
+    """
+    Rewriting to the right, four leaves need two rounds: the second matches
+    a cell the first added.
+    """
+    x = symmetric.Ty('x')
+    S = ehypergraph.Symmetric.from_diagram
+    m = symmetric.Box('m', x @ x, x)
+    a, b, c, d = [symmetric.Box(name, symmetric.Ty(), x) for name in "abcd"]
+    assoc = symmetric.Equation(m @ x >> m, x @ m >> m, symbol="->")
+    left = ((a @ b >> m) @ c >> m) @ d >> m
+    right = a @ (b @ (c @ d >> m) >> m) >> m
+    assert S(left).equiv(S(right), [assoc]) and not S(left).equiv(S(right))
+    assert not S(left).equiv(S(right), [assoc], fuel=1)
+
+
+def test_Frobenius_naturality():
+    hole, spider = frobenius.Hole('h', x, x), Spider(1, 2, x)
+    nat = frobenius.Equation(hole >> spider, spider >> hole @ hole)
+    graph = F(h >> spider)
+    assert list(graph.match(F(hole >> spider))) == [(0, 1)]
+    assert graph.equiv(F(spider >> h @ h), [nat])
+    assert not graph.equiv(F(spider >> h @ h))
+
+
+def test_Markov_saturate():
+    x = markov.Ty('x')
+    copy, f = markov.Copy(x), markov.Box('f', x, x)
+    comm = markov.Equation(copy >> markov.Swap(x, x), copy)
+    graph = Markov.from_diagram(copy).saturate([comm])
+    assert len(graph.rows) == 5 and len(list(graph.scan())) == 2
+    graph = Markov.from_diagram(f).saturate([markov.Equation(f, f)])
+    assert len(graph.rows) == 3 and len(list(graph.scan())) == 1
