@@ -503,10 +503,30 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         wiring already.
         """
 
-    def saturate(self) -> Symmetric:
+    def close(self):
         """
-        The closure of the e-hypergraph under :meth:`canonize` and
+        Close the e-hypergraph in place under :meth:`canonize` and
         :meth:`rebuild`, applied in turn until neither changes it.
+        """
+        state = None
+        while state != (len(self.rows), len(set(self.uf))):
+            state = (len(self.rows), len(set(self.uf)))
+            self.canonize()
+            self.rebuild()
+
+    def saturate(self, equations: Iterable[Equation] = (), fuel: int = 64,
+                 until: Callable[[Symmetric], bool] = None) -> Symmetric:
+        """
+        The closure of a copy of the e-hypergraph under :meth:`close` and the
+        rules of some equations, see :meth:`lower_equation`: each round closes
+        it and fires every match of every rule that has not fired yet, see
+        :meth:`match` and :meth:`rewrite`, until there is none, ``until``
+        holds of the result or ``fuel`` rounds have fired.
+
+        Parameters:
+            equations : The equations to saturate under.
+            fuel : The number of rounds of firing.
+            until : A predicate on the result that stops the saturation early.
 
         Example
         -------
@@ -514,12 +534,29 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         >>> x = Ty('x')
         >>> graph = Frobenius.from_diagram(Spider(1, 2, x) >> Spider(2, 1, x))
         >>> assert graph.saturate() != graph
+        >>> from discopy.symmetric import Ty, Box, Equation
+        >>> x = Ty('x')
+        >>> f, g, k = Box('f', x, x), Box('g', x, x), Box('k', x, x)
+        >>> graph = Symmetric.from_diagram(f >> g)
+        >>> print(graph.saturate([Equation(f >> g, k)]).to_diagram())
+        k
         """
-        result, state = copy(self), None
-        while state != (len(result.rows), len(set(result.uf))):
-            state = (len(result.rows), len(set(result.uf)))
-            result.canonize()
-            result.rebuild()
+        rules = [rule for equation in equations
+                 for rule in type(self).lower_equation(equation)]
+        result, fired = copy(self), set()
+        for _ in range(fuel):
+            result.close()
+            if until is not None and until(result):
+                return result
+            matches = [
+                (i, cells) for i, (pattern, _) in enumerate(rules)
+                for cells in result.match(pattern) if (i, cells) not in fired]
+            if not matches:
+                return result
+            for i, cells in matches:
+                result.rewrite(*rules[i], cells)
+            fired.update(matches)
+        result.close()
         return result
 
     def costs(self) -> tuple[dict[int, int], dict[int, int]]:
@@ -774,6 +811,51 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
                       for gid in reversed(candidates[len(chosen)])
                       if self.binding(pattern, chosen + (gid, )) is not None]
 
+    def rewrite(self, pattern: Symmetric, rule: Symmetric,
+                cells: tuple[int, ...]):
+        """
+        Apply a rule on a match of its pattern, in place: intern each cell of
+        the right-hand side on the wires the match binds, a hole on the box
+        it binds, and merge the codomain of the right-hand side with that of
+        the left-hand side, see :meth:`lower_rule`. A wire the right-hand side
+        consumes before producing it, i.e. the loop of a trace, is a fresh
+        wire merged with the output that produces it.
+
+        Parameters:
+            pattern : The pattern of the rule.
+            rule : The rule.
+            cells : A match of the pattern, see :meth:`match`.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box
+        >>> x = Ty('x')
+        >>> f, g, k = Box('f', x, x), Box('g', x, x), Box('k', x, x)
+        >>> graph = Symmetric.from_diagram(f >> g)
+        >>> graph.rewrite(*Symmetric.lower_rule(f >> g, k), (0, 1))
+        >>> graph.rebuild()
+        >>> print(graph.to_diagram())
+        k
+        """
+        binding, find = self.binding(pattern, cells), rule.uf.find
+        for gid in range(len(pattern.rows), len(rule.rows)):
+            box, src, tgt = rule[gid]
+            if isinstance(box, cat.Hole):
+                filling = binding[box.holes[0]]
+                box = filling.dagger() if box.is_dagger else filling
+            for wire in src:
+                if find(wire) not in binding:
+                    binding[find(wire)] = self.wire(rule.wire_types[wire])
+            out = self.intern(box, tuple(binding[find(wire)] for wire in src))
+            for wire, host in zip(tgt, out):
+                if find(wire) in binding:
+                    self.merge(binding[find(wire)], host)
+                else:
+                    binding[find(wire)] = host
+        for left, right in zip(pattern.cod_wires, rule.cod_wires):
+            if find(left) != find(right):
+                self.merge(binding[find(left)], binding[find(right)])
+
     def lower(self, diagram: Diagram, scan: list[int]) -> list[int]:
         """
         Lower the boxes of a diagram onto a list of open wires, and return the
@@ -878,11 +960,13 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         result.cod_wires = result.cod_wires[m:]
         return result
 
-    def equiv(self, other: Symmetric) -> bool:
+    def equiv(self, other: Symmetric, equations: Iterable[Equation] = (),
+              fuel: int = 64) -> bool:
         """
         Whether two parallel e-hypergraphs are equal modulo the structure of
         their category, i.e. their codomains are the same vertices once their
-        domains are merged and the result is saturated.
+        domains are merged and the result is saturated, under some equations,
+        see :meth:`saturate`.
 
         This is not transitive: an e-hypergraph that holds two alternatives
         is equivalent to each of them, which need not be equivalent. It is
@@ -891,6 +975,8 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
 
         Parameters:
             other : The other e-hypergraph.
+            equations : The equations to saturate under.
+            fuel : The number of rounds of firing.
 
         Example
         -------
@@ -905,9 +991,12 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         union, n, m = self @ other, len(self.dom), len(self.cod)
         for left, right in zip(union.dom_wires[:n], union.dom_wires[n:]):
             union.merge(left, right)
-        union = union.saturate()
-        return all(union.uf.find(left) == union.uf.find(right) for left, right
-                   in zip(union.cod_wires[:m], union.cod_wires[m:]))
+
+        def goal(graph):
+            return all(graph.uf.find(left) == graph.uf.find(right)
+                       for left, right
+                       in zip(graph.cod_wires[:m], graph.cod_wires[m:]))
+        return goal(union.saturate(equations, fuel, until=goal))
 
     def incidence(self) -> hypergraph.Hypergraph:
         """
@@ -1164,8 +1253,16 @@ class Markov(Symmetric, MarkovCategory):
     def congruence(self) -> bool:
         """
         Merge nothing, since two occurrences of a box on the same inputs need
-        not be the same, and return that nothing was merged.
+        not be the same, but mark dead every live cell with the box, the input
+        vertices and the output vertices of an earlier live cell, since two
+        alternatives with the same boundary are one. Return that nothing was
+        merged.
         """
+        find, index = self.uf.find, {}
+        for gid, box, src, tgt in self.scan():
+            key = (box, self.signature(box, src), tuple(map(find, tgt)))
+            if index.setdefault(key, gid) != gid:
+                self.dead.add(gid)
         return False
 
 
