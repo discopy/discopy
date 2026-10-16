@@ -9,6 +9,49 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Every free category generates itself, so that the property matrix checks
+  every level of the hierarchy, from `monoidal` to `frobenius`, with its
+  types where it has its own, and nothing enrols a level but its name in
+  `proptest/categories.py`. The generators of a free category are its
+  factories: `monoidal.Diagram.generators` reads the box classes off the
+  `*_factory` attributes of a diagram class, and each structural box draws
+  itself with a `strategy` of its own, stated once beside its constructor
+  — a `Braid` is two atomic types and a side, a `Trace` a free box over one
+  memory wire, a `Cup` an atomic type and its right adjoint, a `Copy` an
+  atomic type and a number of copies, a `Spider` its legs, a `Feedback` a
+  free box over one delayed memory — so that no level overrides
+  `Box.strategy`. `monoidal.Box.strategy` draws a free box with a fresh
+  name between the boundaries asked for, or any generator of its category
+  when none is; `Layer.strategy` cuts a boundary into the types on either
+  side of each box; `Diagram.strategy` composes layers, the last one landing
+  on the codomain asked for, with scalars tensored on the side unless
+  `boundary_connected`; and `cat.Arrow.strategy` draws a path of fresh
+  generators the same way, where it drew a single one. A box class listing
+  its diagram class among its bases is that category's `box_factory`,
+  registered by `monoidal.Box.__init_subclass__` rather than assigned by
+  every module. `monoidal.Ty.strategy` draws a word of wires composable
+  from one colour to another, `monoidal.Nat.strategy` and `Dim.strategy` a
+  number transparent on both sides, which `monoidal.is_monochrome` says is
+  the only boundary they have, and `rigid.Wire.strategy` a winding number
+  that `pivotal` bounds to a parity and `frobenius` to zero, as defaults a
+  caller narrows by passing its own. Where the laws of `main` were never
+  run against a structural box, it did not read back: `braided.Braid`
+  lost its dagger in its tree, `traced.Trace` printed its argument with
+  `str` and had no tree, nor had `balanced.Twist`, `markov.Copy` and
+  `Merge`, `frobenius.Spider`, `feedback.Feedback` and `monoidal.Dim`; each
+  has its own now. `closed.Merge` is the dagger of a `closed.Copy`, where
+  it was a `markov.Merge`, since `Copy.dagger` and `Merge.dagger` go
+  through the `merge_factory` and `copy_factory` of their category.
+  `monoidal.Nat` declares `identity_typing` inapplicable, its identity
+  ignoring the colour; `rigid.Ty`, `rigid.Diagram` and `feedback.Diagram`
+  declare the dagger laws inapplicable, having no dagger, which `pivotal`
+  restates, and `feedback.Feedback.dagger` raises `AxiomError` where it
+  crashed. The matrix grows from 10 cells to 230, under the laws stated so
+  far: those of `abc.Category` and of `axioms.Testable`; the laws of each
+  doctrine, and the shapes of their arguments, come next
+  ([#659](https://github.com/discopy/discopy/pull/659),
+  [#670](https://github.com/discopy/discopy/issues/670),
+  [#711](https://github.com/discopy/discopy/issues/711)).
 - `grammar.abstract`, abstract categorial grammars after de Groote's
   *Towards abstract categorial grammars* (2001)
   ([#398](https://github.com/discopy/discopy/issues/398)).
@@ -173,10 +216,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   states, so a subspace annotation like `ComposablePair[C1]`
   builds; an unbound axiom's `.strategy()` raises the same `TypeError`
   as `.falsify` and calling it. The
-  search itself is the canonical instantiation only — one atomic object or
-  one free/generator box per parameter, no recursive or compound
-  generation — wired up in `proptest/test_axioms.py`, enrolled so far for
-  `cat.Arrow`, and run by the new `proptest` GitHub
+  search is wired up in `proptest/test_axioms.py`, over the categories
+  `proptest/categories.py` lists, and run by the new `proptest` GitHub
   workflow on PRs labelled `proptest`, on `main`, nightly and on manual
   dispatch. `proptest/conftest.py` registers four Hypothesis profiles
   over one example database, keyed per cell: `pr` replays what the

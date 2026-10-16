@@ -1,4 +1,7 @@
 from discopy.balanced import *
+from discopy.axioms import assert_axioms
+from hypothesis import find
+from discopy.utils import dumps, loads
 
 
 def test_repr():
@@ -85,3 +88,10 @@ def test_to_braided_default_and_zero_width():
 
     # width=0 returns the diagram as is, i.e. without dual rails.
     assert twist.to_braided(width=0) == twist
+
+
+def test_axioms():
+    assert_axioms(Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())

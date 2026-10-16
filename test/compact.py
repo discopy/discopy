@@ -1,6 +1,9 @@
 from pytest import raises
 
 from discopy.compact import *
+from discopy.axioms import assert_axioms
+from hypothesis import find
+from discopy.utils import dumps, loads
 
 
 def test_Cup_Cap_dagger():
@@ -64,3 +67,10 @@ def test_mixed_Layer_rotation_and_transpose():
     assert diagram.transpose_box(0, 0).boxes[-1] == f
     assert f.r in diagram.transpose_box(0, 1).boxes
     assert list(diagram.snake_removal()) == []
+
+
+def test_axioms():
+    assert_axioms(Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())

@@ -7,10 +7,42 @@ rather than in any one of them.
 
 import pytest
 
-from discopy import cat
+from discopy import (
+    balanced,
+    biclosed,
+    braided,
+    cat,
+    closed,
+    compact,
+    feedback,
+    frobenius,
+    markov,
+    monoidal,
+    pivotal,
+    ribbon,
+    rigid,
+    symmetric,
+    traced,
+)
 from discopy.utils import factory_name
 
-CATEGORIES = (cat.Arrow, )
+CATEGORIES = (
+    cat.Arrow,
+    monoidal.Ty, monoidal.Nat, monoidal.Diagram,
+    braided.Diagram,
+    traced.Diagram,
+    balanced.Diagram,
+    symmetric.Diagram,
+    biclosed.Ty, biclosed.Diagram,
+    rigid.Ty, rigid.Diagram,
+    pivotal.Ty, pivotal.Diagram,
+    ribbon.Diagram,
+    compact.Diagram,
+    markov.Diagram,
+    closed.Ty, closed.Diagram,
+    feedback.Ty, feedback.Diagram,
+    frobenius.Ty, frobenius.Diagram,
+)
 
 
 def category_parameters(classify=lambda category: ()):

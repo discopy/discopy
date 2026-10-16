@@ -40,7 +40,7 @@ from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import (  # noqa: F401  pylint: disable=unused-import
     Colour, Ty)
-from discopy.utils import factory_name, assert_isatomic
+from discopy.utils import factory_name, from_tree, assert_isatomic
 
 
 @dataclass(frozen=True)
@@ -283,6 +283,14 @@ class Twist(Box):
         name = type(self).__name__ + f"({dom})"
         Box.__init__(self, name, dom, dom, is_dagger=is_dagger)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the twist of an atomic type, or its dagger. """
+        from hypothesis import strategies as st
+
+        return st.tuples(cls.atomic_strategy(types), st.booleans()).map(
+            lambda args: cls(*args))
+
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
@@ -290,6 +298,16 @@ class Twist(Box):
 
     def dagger(self):
         return type(self)(self.dom, not self.is_dagger)
+
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)),
+                'dom': self.dom.to_tree()}
+        return dict(tree, is_dagger=True) if self.is_dagger else tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(
+            from_tree(tree['dom']), is_dagger=tree.get('is_dagger', False))
 
 
 class Sum(braided.Sum, Box):

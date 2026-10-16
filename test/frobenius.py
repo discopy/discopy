@@ -1,6 +1,9 @@
 from pytest import raises
 
 from discopy.frobenius import *
+from discopy.axioms import assert_axioms
+from hypothesis import find
+from discopy.utils import dumps, loads
 
 
 def test_Functor_call():
@@ -63,3 +66,10 @@ def test_spider_decomposition():
     assert Spider(5, 1, n).unfuse() == (Spider(2, 1, n) @ Spider(2, 1, n)
                                            @ Id(n) >> Spider(2, 1, n) @ Id(n)
                                            >> Spider(2, 1, n))
+
+
+def test_axioms():
+    assert_axioms(Ty, Diagram)
+    for generator in Diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box)) == eval(repr(box), box.environment())

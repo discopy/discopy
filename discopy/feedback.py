@@ -147,11 +147,15 @@ In the category of streams, this is just the identity.
 from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
-from discopy.abc import FeedbackCategory
+from discopy.abc import Category, FeedbackCategory
+from discopy.axioms import GENERATORS
 from discopy.utils import (
     deprecated_alias,
-    factory, factory_name, assert_isinstance, AxiomError,
+    factory, factory_name, from_tree, assert_isinstance, AxiomError,
 )
+
+
+NO_DAGGER = "Feedback has no dagger, the delay of its memory is irreversible."
 
 
 def str_delayed(time_step: int):
@@ -171,6 +175,16 @@ class Wire(braided.Wire):
             raise NotImplementedError
         self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
+
+    @classmethod
+    def strategy(cls, *, dom=monoidal.transparent,
+                 cod=monoidal.transparent):
+        """ Generate a constant wire at time zero, with no colour. """
+        from hypothesis import strategies as st
+
+        if not monoidal.is_monochrome(dom, cod):
+            return st.nothing()
+        return st.sampled_from(GENERATORS).map(cls)
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """
@@ -336,6 +350,10 @@ class Diagram(markov.Diagram, FeedbackCategory):
     """
     ob = Ty
     layer_factory = Layer
+
+    dagger_involution = Category.dagger_involution.inapplicable(NO_DAGGER)
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        NO_DAGGER)
 
     def delay(self, n_steps=1):
         """ The delay of a feedback diagram. """
@@ -552,8 +570,35 @@ class Feedback(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, self.name, dom, cod)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the feedback of a free box over one atomic memory. """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+
+        def feedbacks(args):
+            memory, dom, cod = args
+            return cls.ar.box_factory.strategy(
+                types=types, dom=dom @ memory.delay(), cod=cod @ memory).map(
+                    lambda arg: cls(arg, mem=memory))
+
+        return st.tuples(
+            cls.atomic_strategy(types), types, types).flatmap(feedbacks)
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'arg': self.arg.to_tree(), 'mem': self.mem.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['arg']), mem=from_tree(tree['mem']))
+
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
+
+    def dagger(self):
+        raise AxiomError(NO_DAGGER)
 
     def __str__(self):
         mem_name = "" if len(self.mem) == 1 else f"mem={self.mem}"
