@@ -86,12 +86,13 @@ wires makes two rows congruent:
 from __future__ import annotations
 
 from copy import copy
-from typing import TYPE_CHECKING, Hashable, Iterable, Iterator
+from typing import TYPE_CHECKING, Callable, Hashable, Iterable, Iterator
 
 import numpy as np
 
 from discopy import (
-    compact, frobenius, hypergraph, markov, messages, rigid, symmetric, traced)
+    cat, compact, frobenius, hypergraph, markov, messages, rigid, symmetric,
+    traced)
 from discopy.abc import (
     CompactCategory,
     HypergraphCategory,
@@ -105,12 +106,14 @@ from discopy.utils import (
     AxiomError,
     UnionFind,
     assert_iscomposable,
+    assert_isparallel,
     classproperty,
     factory_name,
     unbiased,
 )
 
 if TYPE_CHECKING:
+    from discopy.axioms import Equation
     from discopy.monoidal import Box, Diagram, Ty
 
 
@@ -628,6 +631,148 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         graph.dom_wires = graph.wires(diagram.dom)
         graph.cod_wires = tuple(graph.lower(diagram, list(graph.dom_wires)))
         return graph
+
+    @classmethod
+    def lower_rule(
+            cls, lhs: Diagram, rhs: Diagram) -> tuple[Symmetric, Symmetric]:
+        """
+        The pattern of a rule, i.e. its left-hand side lowered, and the rule,
+        i.e. the pattern extended with the right-hand side lowered onto the
+        same domain: the cells of the pattern are the first cells of the rule
+        on the same wires, the codomain wires of the pattern are those of the
+        left-hand side and those of the rule are those of the right-hand side.
+
+        A hole is a box variable, standing for any cell of its boundary, so a
+        hole of the right-hand side must occur in the left-hand side. An
+        interface wire on no cell of the left-hand side is a free variable
+        the match does not bind: it is dropped from the rule when it passes
+        straight through both sides at the same position, and refused
+        otherwise, see issue #816.
+
+        Parameters:
+            lhs : The left-hand side.
+            rhs : The right-hand side, parallel to it.
+
+        Raises:
+            AxiomError : When the two sides are not parallel.
+            ValueError : When the right-hand side has a hole the left-hand
+                side does not, or uses an interface wire no cell of the
+                left-hand side binds.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box
+        >>> x = Ty('x')
+        >>> f, g, k = Box('f', x, x), Box('g', x, x), Box('k', x, x)
+        >>> pattern, rule = Symmetric.lower_rule(f >> g, k)
+        >>> len(pattern.rows), len(rule.rows), pattern.cod_wires, rule.cod_wires
+        (2, 3, (2,), (3,))
+        """
+        assert_isparallel(lhs, rhs)
+        if not set(rhs.holes) <= set(lhs.holes):
+            raise ValueError(messages.UNBOUND_HOLE.format(rhs, lhs))
+        pattern = cls.from_diagram(lhs)
+        rule = copy(pattern)
+        rule.cod_wires = tuple(rule.lower(rhs, list(rule.dom_wires)))
+        find, rows = rule.uf.find, range(len(pattern.rows), len(rule.rows))
+        bound = {find(w) for _, _, src, tgt in pattern.scan() for w in src + tgt}
+        bound |= {find(w) for gid in rows for w in rule[gid][2]}
+        if any(find(w) not in bound for gid in rows for w in rule[gid][1])\
+                or any(find(left) != find(right)
+                       and not {find(left), find(right)} <= bound
+                       for left, right in zip(
+                           pattern.cod_wires, rule.cod_wires)):
+            raise ValueError(messages.UNBOUND_WIRE.format(rhs, lhs))
+        return pattern, rule
+
+    @classmethod
+    def lower_equation(
+            cls, equation: Equation) -> list[tuple[Symmetric, Symmetric]]:
+        """
+        The rules of an equation: each pair of consecutive terms from left to
+        right, see :meth:`lower_rule`, and from right to left too when the
+        symbol between them is ``=``.
+
+        Parameters:
+            equation : The equation.
+        """
+        rules = []
+        for left, symbol, right in zip(
+                equation.terms, equation.symbols, equation.terms[1:]):
+            rules.append(cls.lower_rule(left, right))
+            if symbol == "=":
+                rules.append(cls.lower_rule(right, left))
+        return rules
+
+    def candidates(self, box: Box) -> list[int]:
+        """
+        The live cells a box of a pattern can match: the occurrences of the
+        box, or every cell of its domain and codomain when it is a hole.
+
+        Parameters:
+            box : The box of a cell of the pattern.
+        """
+        if isinstance(box, cat.Hole):
+            return [gid for gid, other, *_ in self.scan()
+                    if (other.dom, other.cod) == (box.dom, box.cod)]
+        return [gid for gid, other, *_ in self.scan() if other == box]
+
+    def binding(
+            self, pattern: Symmetric, cells: tuple[int, ...]) -> dict | None:
+        """
+        What a choice of one live cell for each of the first ``len(cells)``
+        cells of a pattern binds: each vertex of the pattern to a vertex of
+        the e-hypergraph and each hole to a box, or ``None`` when two cells
+        disagree on a vertex or a hole.
+
+        Parameters:
+            pattern : The pattern.
+            cells : One live cell for each of its first cells.
+        """
+        result = {}
+        for (_, box, src, tgt), gid in zip(pattern.scan(), cells):
+            other, src_, tgt_ = self[gid]
+            pairs = list(zip(map(pattern.uf.find, src + tgt),
+                             map(self.uf.find, src_ + tgt_)))
+            if isinstance(box, cat.Hole):
+                pairs.append(
+                    (box.holes[0], other.dagger() if box.is_dagger else other))
+            for key, value in pairs:
+                if result.setdefault(key, value) != value:
+                    return None
+        return result
+
+    def match(self, pattern: Symmetric) -> Iterator[tuple[int, ...]]:
+        """
+        The matches of a pattern: one live cell for each of its cells, see
+        :meth:`candidates`, that agree on the vertices and holes they share,
+        see :meth:`binding`, in the order of the candidates.
+
+        Parameters:
+            pattern : The pattern.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box, Hole
+        >>> x = Ty('x')
+        >>> f, g, h = Box('f', x, x), Box('g', x, x), Hole('h', x, x)
+        >>> graph = Symmetric.from_diagram(f >> g >> f)
+        >>> list(graph.match(Symmetric.from_diagram(f >> g)))
+        [(0, 1)]
+        >>> list(graph.match(Symmetric.from_diagram(h >> g)))
+        [(0, 1)]
+        """
+        cells = list(pattern.scan())
+        candidates = [self.candidates(box) for _, box, *_ in cells]
+        stack = [()]
+        while stack:
+            chosen = stack.pop()
+            if len(chosen) == len(cells):
+                yield chosen
+                continue
+            stack += [chosen + (gid, )
+                      for gid in reversed(candidates[len(chosen)])
+                      if self.binding(pattern, chosen + (gid, )) is not None]
 
     def lower(self, diagram: Diagram, scan: list[int]) -> list[int]:
         """
