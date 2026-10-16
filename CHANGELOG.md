@@ -9,6 +9,27 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- Rewriting in `discopy.ehypergraph`, so that `equiv` decides an equation
+  modulo a theory rather than modulo the structure of the category alone. A
+  rule is an `axioms.Equation` between parallel diagrams whose holes are box
+  variables, firing each pair of consecutive terms left to right, and right
+  to left too when the symbol between them is `=`.
+  `Symmetric.lower_rule` lowers a rule into its pattern, the left-hand side,
+  and the pattern extended with the right-hand side on the same domain;
+  `match` is a backtracking join over the cells of the pattern, a hole
+  matching any live cell of its boundary; `rewrite` interns the right-hand
+  side on a match and merges the two codomains; and
+  `saturate(equations, fuel, until)` fires every match that has not fired
+  yet, round after round, until there is none, `until` holds or `fuel`
+  rounds have fired, closing it under `close` before each round, i.e. what
+  `saturate` used to be. A rule with an interface wire that no cell of its
+  left-hand side binds is refused, unless the wire passes straight through
+  both sides, since matching it soundly needs a convex match
+  ([#816](https://github.com/discopy/discopy/issues/816)).
+  `Markov.congruence` kills a cell with the box and the vertices of an
+  earlier one, so that a rule recreating its own left-hand side, e.g.
+  `Copy(x) >> Swap(x, x) == Copy(x)`, stops
+  ([#815](https://github.com/discopy/discopy/pull/815)).
 - Diagrams with holes: `cat.Hole` is a box with no inside, standing for an
   arrow of its boundary, with one subclass per level from `monoidal` to
   `frobenius` mirroring `Box`, printed and drawn as `?name`. `Arrow.holes`
@@ -964,6 +985,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `fail-under` rises from 8.8 to 8.81, the score once `ehypergraph` gains
+  its rewrite rules ([#815](https://github.com/discopy/discopy/pull/815)).
 - `fail-under` rises from 8.75 to 8.77, the score once `closed` gains its
   products and let statements
   ([#489](https://github.com/discopy/discopy/pull/489)).

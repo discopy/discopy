@@ -36,8 +36,13 @@ outputs of two occurrences of a box on the same inputs.
 * :class:`Compact` yanks snakes, see :meth:`Compact.yank_snakes`, and
 * :class:`Frobenius` fuses spiders, see :meth:`Frobenius.fuse_spiders`.
 
-This is the enrichment of the ``metatheory`` equality saturation engine,
-without its rewrite rules.
+A rule is an :class:`discopy.axioms.Equation` between parallel diagrams
+whose holes are box variables, see :meth:`Symmetric.lower_rule`;
+:meth:`Symmetric.match` finds its left-hand side, :meth:`Symmetric.rewrite`
+interns its right-hand side on a match and :meth:`Symmetric.saturate`
+fires every match to a fixpoint, so that :meth:`Symmetric.equiv` decides
+an equation modulo a theory. This is the ``metatheory`` equality saturation
+engine on the enrichment of its carrier by a category.
 
 Summary
 -------
@@ -81,6 +86,15 @@ wires makes two rows congruent:
 >>> graph.merge(a, b)
 >>> graph.rebuild()
 >>> assert graph.uf.find(u[0]) == graph.uf.find(v[0])
+
+A rule applies wherever its left-hand side matches, e.g. associativity:
+
+>>> from discopy.symmetric import Equation
+>>> m = Box('m', x @ x, x)
+>>> a, b, c = [Box(name, Ty(), x) for name in "abc"]
+>>> assoc = Equation(m @ x >> m, x @ m >> m)
+>>> left, right = (a @ b >> m) @ c >> m, a @ (b @ c >> m) >> m
+>>> assert F(left).equiv(F(right), [assoc]) and not F(left).equiv(F(right))
 """
 
 from __future__ import annotations
@@ -702,8 +716,10 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         >>> x = Ty('x')
         >>> f, g, k = Box('f', x, x), Box('g', x, x), Box('k', x, x)
         >>> pattern, rule = Symmetric.lower_rule(f >> g, k)
-        >>> len(pattern.rows), len(rule.rows), pattern.cod_wires, rule.cod_wires
-        (2, 3, (2,), (3,))
+        >>> len(pattern.rows), len(rule.rows)
+        (2, 3)
+        >>> pattern.cod_wires, rule.cod_wires
+        ((2,), (3,))
         """
         assert_isparallel(lhs, rhs)
         if not set(rhs.holes) <= set(lhs.holes):
@@ -712,7 +728,7 @@ class Symmetric(SymmetricCategory, NamedGeneric['category'], Setoid):
         rule = copy(pattern)
         rule.cod_wires = tuple(rule.lower(rhs, list(rule.dom_wires)))
         find, rows = rule.uf.find, range(len(pattern.rows), len(rule.rows))
-        bound = {find(w) for _, _, src, tgt in pattern.scan() for w in src + tgt}
+        bound = {find(w) for *_, src, tgt in pattern.scan() for w in src + tgt}
         bound |= {find(w) for gid in rows for w in rule[gid][2]}
         if any(find(w) not in bound for gid in rows for w in rule[gid][1])\
                 or any(find(left) != find(right)
