@@ -654,7 +654,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
-- `Matrix` is a `MarkovCategory` rather than a `MonoidalCategory` and gets a
+- `Matrix` is a `SymmetricCategory` rather than a `MonoidalCategory` and gets a
   native `Matrix.permutation`, so a matrix-valued functor applied to a
   diagram with an explicit `Permutation` layer no longer raises
   `AttributeError`. `Matrix.copy` and `Tensor.copy` default to `n=2` like
