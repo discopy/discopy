@@ -9,6 +9,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- `traced.Sum`, `pivotal.Sum`, `compact.Sum` and `frobenius.Sum`, the formal
+  sum of morphisms at the four levels of the hierarchy that had none, each
+  mirroring its `Diagram`'s own bases and wired into `Diagram.sum_factory`.
+  A functor with a formal sum in its codomain (e.g. `ar_map=lambda x: x + x`)
+  crashed on any diagram in one of these four categories, unlike every other
+  level ([#207](https://github.com/discopy/discopy/issues/207)).
 - `grammar.abstract`, abstract categorial grammars after de Groote's
   *Towards abstract categorial grammars* (2001)
   ([#398](https://github.com/discopy/discopy/issues/398)).
@@ -316,6 +322,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Changed
 
+- `Sqrt` of a negative or complex number carries an `is_dagger` flag that
+  conjugates its array, so such a square root and its dagger are no longer
+  equal; a real square root stays self-adjoint and rejects the flag
+  ([#482](https://github.com/discopy/discopy/issues/482)).
 - `monoidal.Colour` is transparent by default rather than white, i.e. its
   `name` defaults to the new `config.TRANSPARENT` and `monoidal.white` is
   renamed to `monoidal.transparent`. The drawing code painted every region
@@ -644,6 +654,30 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Fixed
 
+- `Matrix` is a `SymmetricCategory` rather than a `MonoidalCategory` and gets a
+  native `Matrix.permutation`, so a matrix-valued functor applied to a
+  diagram with an explicit `Permutation` layer no longer raises
+  `AttributeError`. `Matrix.copy` and `Tensor.copy` default to `n=2` like
+  every other `copy` in the hierarchy, so single-argument calls such as
+  `closed.Application.eval` no longer raise `TypeError`
+  ([#535](https://github.com/discopy/discopy/issues/535)).
+- Contracting a tensor network with more than `config.MAX_EINSUM_INDICES`
+  indices imports `opt_einsum`, which is not a declared dependency; a plain
+  install now raises a clear `ImportError` naming the package to install
+  instead of `ModuleNotFoundError` with no context
+  ([#596](https://github.com/discopy/discopy/issues/596)).
+- `closed.Product` parenthesises a first factor of more than one wire at any
+  arity but two, as it already did at two: `Product(X @ Y, Z, W)` printed
+  `X @ Y.product(Z, W)`, which reads back as `X @ (Y.product(Z, W))`.
+- Bugs in `discopy.quantum` reported in
+  [#482](https://github.com/discopy/discopy/issues/482): `CQ.__str__`
+  printed classical dimensions as quantum, `Measure(override_bits=True)`
+  could not be evaluated, `Encode` ignored `constructive`/`reset_bits` in
+  its types so daggers were not type-correct, `CRz`/`CRx`/`CU1` raised at
+  any `distance` other than one, `Sqrt.dagger` returned `self` so that
+  `Sqrt(-1) >> Sqrt(-1).dagger()` evaluated to `-1` instead of `1`, and
+  `Channel.cups`/`Channel.discard` hard-coded `Channel` so `Channel[float]`
+  silently gave a `Channel[complex]`.
 - A regression test for `stream.Stream.__init__`'s codomain-mismatch
   `AxiomError`, which reports `cod`/`now.cod` rather than the `dom`/`now.dom`
   it once printed on both sides of `!=`. The message was corrected in passing
@@ -863,6 +897,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Performance
 
+- `Channel.tensor` contracts the two arrays directly and interleaves their
+  axes, instead of building four boxes, two swap diagrams and a fresh
+  `tensor.Functor` on every `@`: ~120x on one tensor and ~12x on
+  `eval(mixed=True)` for a four-qubit circuit. `Channel.measure` builds its
+  copy spider instead of a Python list comprehension, and
+  `Circuit.measure(mixed=False)` reads the Born rule off a single
+  contraction instead of running `2**n` of them: ~18x at ten qubits
+  ([#482](https://github.com/discopy/discopy/issues/482)).
 - The elements of a Hopf algebra (`drinfeld_element`, `pivotal_element`,
   `ribbon_element`) contract each structural generator once through the
   cached `Algebra.arrays` and solve for the pivot with a thin SVD, so that
