@@ -106,6 +106,9 @@ class Diagram(monoidal.Diagram, BraidedCategory):
         """
         return hexagon(cls, cls.braid_factory)(left, right)
 
+    braid_naturality = BraidedCategory.braid_naturality.failing(
+        "A free braid is a box, it does not slide past another box.")
+
     def simplify(self) -> Diagram:
         """ Remove braids followed by their dagger. """
         layers = [layer.boxes_and_types for layer in self.inside]

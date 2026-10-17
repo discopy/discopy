@@ -9,6 +9,57 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Added
 
+- The laws of every doctrine, stated once on its abstract base class in
+  `discopy.abc` and inherited by every category below it: the interchange
+  law, the typing and unitality of the tensor and the monoidality of the
+  dagger on `MonoidalCategory`; vanishing, superposing, naturality and
+  dinaturality of the trace on `TracedCategory`; currying followed by
+  evaluation on `BiclosedCategory`, through the new `uncurry_composition`;
+  the adjunction of a `Pregroup`; the snake equations, the coherence of
+  caps and the contravariance of rotation on `RigidCategory`; self-duality
+  and pivotality on `PivotalCategory`; the hexagons and the naturality of
+  the braid on `BraidedCategory`; the involutivity of the swap on
+  `SymmetricCategory`; the comonoid laws of copying and discarding on
+  `MarkovCategory`; vanishing and joining of feedback on
+  `FeedbackCategory`; the twist against the braid on `BalancedCategory`
+  and against the traced braid on `RibbonCategory`; the first Reidemeister
+  move on `CompactCategory`. **The shapes of their arguments live in
+  `abc.py` too, beside the class whose law quantifies over them** (USER,
+  2026-10-17, closing [#711](https://github.com/discopy/discopy/issues/711)):
+  `Atomic`, `NonEmpty`, `BoundaryConnected`, `HorizontalPair` and
+  `Square` before `MonoidalCategory`, `TraceSuperposing`, `TraceSliding`
+  and `TraceDinaturality` with their two sides before `TracedCategory`,
+  `LeftCurrying` and `RightCurrying` before `BiclosedCategory`,
+  `FeedbackVanishing` and `FeedbackJoining` before `FeedbackCategory` —
+  each a `Testable` tuple or dataclass validating a record on construction
+  and drawing one from the category's own strategies, importing nothing but
+  `discopy.axioms`, so that the structure, its laws and what they range over
+  are declared in one place and the free model of each level adds only how
+  its generators are drawn. `Diagram.equation_factory` is wired at every
+  level, so that a law compares strictly below `symmetric` and up to
+  hypergraph from it on. What a free category breaks or has no structure
+  for is declared where its diagram class is: `monoidal.Diagram` compares
+  the interchange law and dagger monoidality up to `normal_form` on
+  boundary-connected arguments; `braided.Diagram` declares the naturality
+  of a free braid broken, which is a box; `traced.Diagram` declares the
+  trace laws inapplicable, a free trace being a box, and `symmetric.Diagram`
+  restates all of them, holding up to hypergraph; `biclosed.Diagram`
+  declares currying broken ([#562](https://github.com/discopy/discopy/issues/562))
+  and `compact.Diagram` restates it; `rigid.Diagram` compares the snakes
+  up to snake removal and has no dagger to be monoidal, `pivotal.Diagram`
+  restates dagger monoidality and the superposing of its trace by cups and
+  caps and compares pivotality up to snake removal, `ribbon.Diagram` the
+  twist against the traced braid likewise; `feedback.Diagram` declares the
+  joining of feedback broken
+  ([#649](https://github.com/discopy/discopy/issues/649)) and gains the
+  `Trace` and `Discard` of its own that its inherited factories lacked, so
+  that a traced or discarded feedback diagram is one. `CMap.is_boundary_connected`
+  says whether the boundary of a map reaches every box, which the
+  hypergraph of a rigid diagram with left-handed cups cannot. The matrix
+  grows from 230 cells to 480, 17 of them declared broken and 29 inapplicable, each with its reason
+  ([#659](https://github.com/discopy/discopy/pull/659),
+  [#670](https://github.com/discopy/discopy/issues/670),
+  [#817](https://github.com/discopy/discopy/pull/817)).
 - Every free category generates itself, so that the property matrix checks
   every level of the hierarchy, from `monoidal` to `frobenius`, with its
   types where it has its own, and nothing enrols a level but its name in

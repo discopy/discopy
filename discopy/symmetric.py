@@ -93,7 +93,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from discopy import monoidal, balanced, hypergraph, cmap, messages
-from discopy.abc import SymmetricCategory
+from discopy.abc import (
+    BraidedCategory, MonoidalCategory, SymmetricCategory, TracedCategory)
 from discopy.cat import factory
 from discopy.monoidal import (  # noqa: F401  pylint: disable=unused-import
     Wire, Ty, Nat)
@@ -268,6 +269,16 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     braid_factory = classproperty(lambda cls: cls.swap_factory)
     layer_factory = Layer
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
+
+    bifunctoriality = MonoidalCategory.bifunctoriality
+    dagger_monoidality = MonoidalCategory.dagger_monoidality
+    braid_naturality = BraidedCategory.braid_naturality
+    trace_superposing_left = TracedCategory.trace_superposing_left
+    trace_superposing_right = TracedCategory.trace_superposing_right
+    trace_naturality_left = TracedCategory.trace_naturality_left
+    trace_naturality_right = TracedCategory.trace_naturality_right
+    trace_dinaturality_left = TracedCategory.trace_dinaturality_left
+    trace_dinaturality_right = TracedCategory.trace_dinaturality_right
 
     @property
     def is_plumbing(self) -> bool:

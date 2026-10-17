@@ -350,7 +350,7 @@ class NonEmpty(Testable, NamedGeneric["factory"]):
     value: C0
 
     def __post_init__(self):
-        if not len(self.value):
+        if not self.value:
             raise ValueError("Expected a non-empty object.")
 
     @classmethod

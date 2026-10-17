@@ -12,6 +12,6 @@ of boilerplate, there must be a way to get there without a import cycle"*.)
       law needs them, importing nothing but `axioms` (closes #711)
 - [x] `Diagram.equation_factory` wired at every level, so a law compares up to the quotient of its
       category: strictly below `symmetric`, up to hypergraph from it on
-- [ ] run the matrix; declare each law a free category breaks or has no structure for, with its
+- [x] run the matrix; declare each law a free category breaks or has no structure for, with its
       reason, where the diagram class is — and only where the measurement says so
-- [ ] tests for the shapes; `CHANGELOG.md`; `pflake8`, `pylint` under the gate, `pytest`, the matrix
+- [x] tests for the shapes; `CHANGELOG.md`; `pflake8`, `pylint` under the gate, `pytest`, the matrix

@@ -342,6 +342,11 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    currying_left = BiclosedCategory.currying_left.failing(
+        "Currying does not evaluate back, see #562.")
+    currying_right = BiclosedCategory.currying_right.failing(
+        "Currying does not evaluate back, see #562.")
+
 
 class Box(monoidal.Box, Diagram):
     """

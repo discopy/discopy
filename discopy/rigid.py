@@ -154,7 +154,7 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
-from discopy.abc import Category, Pregroup, RigidCategory
+from discopy.abc import Category, MonoidalCategory, Pregroup, RigidCategory
 from discopy.axioms import GENERATORS
 from discopy.cat import factory
 from discopy.utils import (
@@ -406,6 +406,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     dagger_involution = Category.dagger_involution.inapplicable(NO_DAGGER)
     dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        NO_DAGGER)
+    dagger_monoidality = MonoidalCategory.dagger_monoidality.inapplicable(
         NO_DAGGER)
 
     to_drawing = monoidal.Diagram.to_drawing
@@ -662,6 +664,8 @@ class Diagram(biclosed.Diagram, RigidCategory):
         >>> assert double_snake == two_snakes_nf
         """
         return super().normal_form(**params)
+
+    snake_equations = RigidCategory.snake_equations.modulo(normal_form)
 
 
 class Box(biclosed.Box, Diagram):
