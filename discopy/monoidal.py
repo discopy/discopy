@@ -63,8 +63,9 @@ from warnings import warn
 
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
-    ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric, classproperty)
-from discopy.axioms import GENERATORS
+    BoundaryConnected, ColouredMonoid, HorizontalPair, Monoid,
+    MonoidalCategory, NamedGeneric, Square, classproperty)
+from discopy.axioms import C1, GENERATORS
 from discopy.drawing import Drawing
 from discopy.config import (
     BOX_DRAWING_ATTRIBUTES, WIRE_DRAWING_ATTRIBUTES,
@@ -1656,6 +1657,12 @@ class Diagram(cat.Arrow, MonoidalCategory, RichDisplay):
             cache.add(str(diagram))
         return diagram
 
+    bifunctoriality = MonoidalCategory.bifunctoriality.modulo(
+        normal_form).weaken(square=BoundaryConnected[Square[C1]])
+
+    dagger_monoidality = MonoidalCategory.dagger_monoidality.modulo(
+        normal_form).weaken(pair=BoundaryConnected[HorizontalPair[C1]])
+
     @classmethod
     def from_tree(cls, tree):
         if "inside" not in tree:
@@ -2104,6 +2111,8 @@ class Equation(cat.Equation, RichDisplay):
         """
         return self.to_drawing().draw(path=path, **params)
 
+
+Diagram.equation_factory = Equation
 
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif

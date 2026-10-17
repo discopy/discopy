@@ -135,6 +135,9 @@ from discopy.utils import (
 )
 
 
+FREE_TRACE = "A free trace is a box, not a feedback loop."
+
+
 @factory
 class Diagram(monoidal.Diagram, TracedCategory):
     """
@@ -145,6 +148,19 @@ class Diagram(monoidal.Diagram, TracedCategory):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    trace_superposing_left = \
+        TracedCategory.trace_superposing_left.inapplicable(FREE_TRACE)
+    trace_superposing_right = \
+        TracedCategory.trace_superposing_right.inapplicable(FREE_TRACE)
+    trace_naturality_left = \
+        TracedCategory.trace_naturality_left.inapplicable(FREE_TRACE)
+    trace_naturality_right = \
+        TracedCategory.trace_naturality_right.inapplicable(FREE_TRACE)
+    trace_dinaturality_left = \
+        TracedCategory.trace_dinaturality_left.inapplicable(FREE_TRACE)
+    trace_dinaturality_right = \
+        TracedCategory.trace_dinaturality_right.inapplicable(FREE_TRACE)
+
     def trace(self, n=1, left=False):
         """
         Feed ``n`` outputs back into inputs.
