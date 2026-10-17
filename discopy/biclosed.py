@@ -896,4 +896,6 @@ class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
 
 
+Diagram.equation_factory = Equation
+
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

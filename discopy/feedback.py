@@ -725,4 +725,6 @@ class Equation(markov.Equation):
     up_to = staticmethod(Diagram.to_hypergraph)
 
 
+Diagram.equation_factory = Equation
+
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

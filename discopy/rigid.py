@@ -926,4 +926,6 @@ class Equation(biclosed.Equation):
     """ The :class:`biclosed.Equation` of rigid diagrams. """
 
 
+Diagram.equation_factory = Equation
+
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})
