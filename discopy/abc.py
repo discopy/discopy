@@ -696,10 +696,13 @@ class ResiduatedMonoid[C0, C1: ResiduatedMonoid](ColouredMonoid[C0, C1]):
         return other.under(self)
 
 
-class LeftCurrying(Testable, NamedGeneric["factory"], tuple):
-    """ An evaluation with its base and exponent, to curry on the left. """
+class Currying(Testable, NamedGeneric["factory"], tuple):
+    """
+    An evaluation with its base and exponent, to curry on the side
+    :attr:`left` says.
+    """
 
-    left = True
+    left: ClassVar[bool]
 
     def __new__(cls, arrow: C1, base: C0, exponent: C0):
         exponential = base << exponent if cls.left else exponent >> base
@@ -719,7 +722,13 @@ class LeftCurrying(Testable, NamedGeneric["factory"], tuple):
             cls.factory.ev(*pair, left=cls.left), *pair))
 
 
-class RightCurrying(LeftCurrying):
+class LeftCurrying(Currying):
+    """ An evaluation with its base and exponent, to curry on the left. """
+
+    left = True
+
+
+class RightCurrying(Currying):
     """ An evaluation with its base and exponent, to curry on the right. """
 
     left = False

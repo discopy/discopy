@@ -24,8 +24,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   `FeedbackCategory`; the twist against the braid on `BalancedCategory`
   and against the traced braid on `RibbonCategory`; the first Reidemeister
   move on `CompactCategory`. **The shapes of their arguments live in
-  `abc.py` too, beside the class whose law quantifies over them** (USER,
-  2026-10-17, closing [#711](https://github.com/discopy/discopy/issues/711)):
+  `abc.py` too, beside the class whose law quantifies over them** (toumix
+  on [#817](https://github.com/discopy/discopy/pull/817), closing
+  [#711](https://github.com/discopy/discopy/issues/711)):
   `Atomic`, `NonEmpty`, `BoundaryConnected`, `HorizontalPair` and
   `Square` before `MonoidalCategory`, `TraceSuperposing`, `TraceSliding`
   and `TraceDinaturality` with their two sides before `TracedCategory`,
@@ -48,8 +49,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   and `compact.Diagram` restates it; `rigid.Diagram` compares the snakes
   up to snake removal and has no dagger to be monoidal, `pivotal.Diagram`
   restates dagger monoidality and the superposing of its trace by cups and
-  caps and compares pivotality up to snake removal, `ribbon.Diagram` the
-  twist against the traced braid likewise; `feedback.Diagram` declares the
+  caps and declares pivotality broken, the two transposes of a free box not
+  being isotopic by snake removal, `ribbon.Diagram` the twist against the
+  traced braid likewise; `feedback.Diagram` declares the
   joining of feedback broken
   ([#649](https://github.com/discopy/discopy/issues/649)) and gains the
   `Trace` and `Discard` of its own that its inherited factories lacked, so
