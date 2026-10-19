@@ -19,6 +19,15 @@ def test_Function():
     assert g.curry(left=False).uncurry(left=False)(1j, True) == g(1j, True)
 
 
+def test_tensor_is_nary():
+    """ The empty tensor is the identity and no operand is swallowed, see
+    https://github.com/discopy/discopy/issues/493. """
+    f, g, h = (Function.id((t, )) for t in (int, bool, float))
+    assert f.tensor() == f
+    assert f.tensor(g).dom == Ty(int, bool)
+    assert f.tensor(g, h).dom == Ty(int, bool, float)
+
+
 def test_fixed_point():
     from math import sqrt
     phi = Function(lambda x=1: 1 + 1 / x, dom=(float,), cod=(float,)).fix()
