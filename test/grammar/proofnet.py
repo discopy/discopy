@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from itertools import permutations
 from random import Random
 
@@ -11,6 +13,13 @@ n, np, s = Ty("n"), Ty("np"), Ty("s")
 a, b, c, e = map(Ty, "abce")
 Alice, Bob = n("Alice"), n("Bob")
 loves = (n >> (n >> s))("loves")
+
+
+def test_lazy_torch_import():
+    subprocess.run([
+        sys.executable, "-c",
+        "import sys; import discopy.grammar; "
+        "assert 'torch' not in sys.modules"], check=True)
 
 
 def test_hungarian():

@@ -63,8 +63,7 @@ have the same net if and only if they are equal up to beta and eta.
 >>> sleeps = (np >> s)("sleeps")
 >>> net = ProofNet.from_term(every(unicorn)(sleeps))
 >>> print(net.to_term())
-(n >> ((np >> s) >> s))('every')(n('unicorn'))(np(lambda x1: (np >> s)\
-('sleeps')(x1)))
+every(unicorn)(np(lambda x1: sleeps(x1)))
 
 Decoding
 --------
@@ -94,7 +93,7 @@ for the assignment problem (1955) <https://doi.org/10.1002/nav.3800020109>`_).
 >>> net.links
 ((1, 4), (2, 0), (5, 3))
 >>> print(net.to_term())
-(n >> (n >> s))('loves')(n('Bob'))(n('Alice'))
+loves(Bob)(Alice)
 """
 
 from __future__ import annotations
@@ -355,7 +354,7 @@ class ProofNet:
         >>> ProofNet(Sequent((f, x), a), [(0, 1), (3, 2)]).to_term()
         Traceback (most recent call last):
         ...
-        discopy.utils.AxiomError: (a >> a)('f') is not connected to the goal.
+        discopy.utils.AxiomError: f is not connected to the goal.
         """
         partner, heads, names = dict(self.links), {}, count(1)
         read = set()

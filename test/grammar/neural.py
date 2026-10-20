@@ -37,6 +37,15 @@ def test_Tagger_beam():
                for ty, _ in beam)
 
 
+def test_Tagger_beam_exhaustive():
+    torch.manual_seed(0)
+    tagger = Tagger(Signature.from_types([n, s]), hidden=8, dim=8)
+    states, mask = torch.randn(1, 1, 8), torch.ones(1, 1) > 0
+    (beam, ) = tagger.beam(states, mask, k=32, max_length=5)
+    assert len(beam) == 2 + 4 + 16
+    assert all(score == score for _, score in beam)
+
+
 def test_sinkhorn():
     blocks = [torch.randn(1, 1, requires_grad=True),
               torch.randn(3, 3, requires_grad=True)]
