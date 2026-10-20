@@ -922,9 +922,10 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
-- `fail-under` rises from 8.77 to 8.80, the score of `main` with
+- `fail-under` rises from 8.77 to 8.79, the score of `main` with
   `grammar.proofnet` and `grammar.neural` as the `lint` job measures it, on
-  Python 3.14 without the extras, where `torch` cannot be imported.
+  Python 3.14 without the extras, where `torch` cannot be imported,
+  rounded down: it reads 8.80 there, a few ten-thousandths either side.
 - `fail-under` rises from 8.75 to 8.77, the score once `closed` gains its
   products and let statements
   ([#489](https://github.com/discopy/discopy/pull/489)).
