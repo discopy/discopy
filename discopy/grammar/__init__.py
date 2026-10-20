@@ -3,7 +3,8 @@
 """
 DisCopy's grammar modules:
 thue, cfg, categorial, pregroup, dependency, abstract, proofnet and neural,
-the last one needing PyTorch and imported on its own.
+the last one needing PyTorch, which the ``grammar`` extra installs, and
+imported on its own.
 """
 
 from discopy.grammar import (

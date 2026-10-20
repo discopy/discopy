@@ -826,6 +826,8 @@ docs = [
 ]
 grammar = [
     { name = "nltk" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
 ]
 quantum = [
     { name = "jax" },
@@ -938,7 +940,9 @@ requires-dist = [
     { name = "sympy", marker = "extra == 'docs'" },
     { name = "sympy", marker = "extra == 'quantum'" },
     { name = "tensornetwork", marker = "extra == 'quantum'" },
+    { name = "torch", marker = "sys_platform == 'linux' and extra == 'grammar'", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'quantum'", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch", marker = "sys_platform != 'linux' and extra == 'grammar'" },
     { name = "torch", marker = "sys_platform != 'linux' and extra == 'quantum'" },
 ]
 provides-extras = ["quantum", "grammar", "test", "docs"]

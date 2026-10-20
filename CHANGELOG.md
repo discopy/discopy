@@ -32,7 +32,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   of the gold linking after `sinkhorn` normalisation, jointly in `Parser`.
   Moved from the trilingual parser of
   [rel-int/lambek#8](https://github.com/rel-int/lambek/pull/8), without its
-  datasets or experiments.
+  datasets or experiments. The `grammar` extra installs `torch`, served from
+  the CPU index on Linux like the `quantum` one, while `import
+  discopy.grammar` imports no framework.
 - Closed terms are evaluated in a context, a list of distinct variables
   containing the free ones, through `closed.TermBase.weaken`, the structural
   morphism discarding the others and permuting the rest; `is_linear` says
