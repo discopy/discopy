@@ -29,7 +29,7 @@ def test_product():
 
 def test_product_str_round_trip():
     X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
-    for typ in (X.product(Y, Z), X.product()):
+    for typ in (X.product(Y, Z), X.product(), (X @ Y).product(Z, X)):
         assert eval(str(typ)) == typ
     assert eval(str(Product())) == Product()
 

@@ -39,10 +39,11 @@ from __future__ import annotations
 from contextlib import contextmanager
 from operator import index
 from types import ModuleType
+from collections.abc import Sequence
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import MonoidalCategory, NamedGeneric, Nat
+from discopy.abc import SymmetricCategory, NamedGeneric, Nat
 from discopy.cat import (
     factory,
     assert_iscomposable,
@@ -55,7 +56,7 @@ if TYPE_CHECKING:
 
 
 @factory
-class Matrix(MonoidalCategory, NamedGeneric['dtype']):
+class Matrix(SymmetricCategory, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -309,6 +310,44 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
 
     braid = swap
 
+    @classmethod
+    def permutation(
+            cls, xs: Sequence[int],
+            doms: Sequence[int] | None = None) -> Matrix:
+        """
+        The matrix that permutes blocks of dimensions.
+
+        Overrides the default of :class:`discopy.abc.SymmetricCategory`, which
+        composes ``len(xs)`` swaps, by writing each block in one pass.
+
+        Parameters:
+            xs : The permutation, as a list of indices.
+            doms : The dimension of each block, one by default.
+
+        When every block is a single dimension, the matrix is the permutation
+        matrix itself, i.e. ``array[i][j]`` iff ``xs[j] == i``.
+
+        Example
+        -------
+        >>> assert Matrix.permutation([1, 0]) == Matrix.swap(1, 1)
+        >>> Matrix.permutation([1, 2, 0])
+        Matrix[int64]([0, 0, 1, 1, 0, 0, 0, 1, 0], dom=3, cod=3)
+        >>> ones = Matrix.permutation([1, 2, 0], [1, 1, 1])
+        >>> assert ones == Matrix.permutation([1, 2, 0])
+
+        Blocks of more than one dimension move as a whole.
+
+        >>> assert Matrix.permutation([1, 0], [1, 2]) == Matrix.swap(1, 2)
+        """
+        xs = list(xs)
+        doms = len(xs) * [1] if doms is None else list(map(index, doms))
+        if list(range(len(doms))) != sorted(xs) or min(doms, default=0) < 0:
+            raise ValueError
+        offsets = [sum(doms[:i]) for i in range(len(doms))]
+        sources = [offsets[i] + j for i in xs for j in range(doms[i])]
+        array = [[int(i == j) for j in sources] for i in range(len(sources))]
+        return cls(array, len(sources), len(sources))
+
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)
 
@@ -329,7 +368,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         return type(self)(array, self.dom, self.cod)
 
     @classmethod
-    def copy(cls, x: Nat, n: int) -> Matrix:
+    def copy(cls, x: Nat, n: int = 2) -> Matrix:
         x = index(x)
         array = [[i + int(j % n * x) == j
                   for j in range(n * x)] for i in range(x)]
