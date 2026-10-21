@@ -98,6 +98,13 @@ def test_Rydberg_dmm():
     circuit = Rydberg(positions, duration, 0, delta, weights=weights, dmm=dmm)
     assert np.allclose(circuit_matrix(circuit), rydberg_exact(
         positions, duration, 0, delta, 0, [w * dmm for w in weights]))
+    omega, dmm, dt = 2., [-1., -3.], duration / 2
+    circuit = Rydberg(positions, duration, omega, delta,
+                      steps=2, weights=weights, dmm=dmm)
+    first, second = (Rydberg(positions, dt, omega, delta,
+                             weights=weights, dmm=sample) for sample in dmm)
+    assert circuit == first >> second
+    assert circuit != second >> first
 
 
 def test_Rydberg_errors():
