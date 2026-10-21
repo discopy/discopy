@@ -220,7 +220,7 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
                              f"got {len(result)}")
         return result
 
-    if any(sample > 0 for sample in samples(dmm)):
+    if not all(sample <= 0 for sample in samples(dmm)):
         raise ValueError(f"Expected a modulated detuning <= 0, got {dmm}")
 
     def strength(source, target):

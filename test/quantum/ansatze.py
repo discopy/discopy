@@ -115,6 +115,10 @@ def test_Rydberg_errors():
         Rydberg([(0, 0)], 1, 0, 0, weights=[2])
     with raises(ValueError):
         Rydberg([(0, 0)], 1, 0, 0, weights=[1], dmm=1)
+    with raises(ValueError):
+        Rydberg([(0, 0)], 1, 0, 0, weights=[1], dmm=float("nan"))
+    with raises(ValueError):
+        Rydberg([(0, 0)], 1, 0, 0, weights=[float("nan")])
 
 
 def test_Rydberg_steps():
