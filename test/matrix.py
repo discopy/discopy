@@ -82,7 +82,7 @@ def test_permutation():
 
 
 def test_copy_defaults_to_two():
-    """ Matrix is a MarkovCategory, whose copy has n=2 by default. """
+    """ Matrix.copy has n=2 by default, like every copy in the hierarchy. """
     assert Matrix.copy(2) == Matrix.copy(2, 2)
     assert Tensor.copy(Dim(2)) == Tensor.copy(Dim(2), 2)
 
@@ -110,7 +110,7 @@ def test_permutation_on_immutable_backend():
 
 
 def test_matrix_valued_functor_on_permutation():
-    """ Matrix is a MarkovCategory, so it is a valid symmetric codomain. """
+    """ Matrix is a SymmetricCategory, so it is a valid symmetric codomain. """
     x, y = Ty('x'), Ty('y')
     perm = Permutation(x @ y @ x, [1, 2, 0])
     F = Functor(ob_map={x: 2, y: 3}, ar_map={}, cod=Matrix)

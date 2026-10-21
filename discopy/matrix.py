@@ -43,7 +43,7 @@ from collections.abc import Sequence
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import MarkovCategory, NamedGeneric, Nat
+from discopy.abc import SymmetricCategory, NamedGeneric, Nat
 from discopy.cat import (
     factory,
     assert_iscomposable,
@@ -56,7 +56,7 @@ if TYPE_CHECKING:
 
 
 @factory
-class Matrix(MarkovCategory, NamedGeneric['dtype']):
+class Matrix(SymmetricCategory, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
