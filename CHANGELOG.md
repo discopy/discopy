@@ -943,6 +943,12 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- `CONTRIBUTING.md` tells a sandboxed contributor to diff its test-suite
+  failure set against the same run on the merge base, so that a failure
+  already present there reads as pre-existing rather than as a regression
+  the change introduced, and to claim local green only for the checks run
+  locally, with CI on the pushed branch the authority on the real suite
+  ([#499](https://github.com/discopy/discopy/issues/499)).
 - `fail-under` rises from 8.75 to 8.77, the score once `closed` gains its
   products and let statements
   ([#489](https://github.com/discopy/discopy/pull/489)).
