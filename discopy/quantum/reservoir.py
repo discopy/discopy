@@ -13,6 +13,7 @@ Summary
     :toctree:
 
     Reservoir
+    Readout
 
 Note
 ----
@@ -29,11 +30,13 @@ with it. Its slice at each time step is a channel from memory to memory
 :meth:`Reservoir.encode`, apply the unitary, then discard the input qubits.
 The features of a time series are the Born probabilities of the memory
 qubits after each step, computed by :meth:`Reservoir.run`; only the
-linear readout :meth:`Reservoir.fit` is trained, with an optional bias.
+linear :class:`Readout` returned by :meth:`Reservoir.fit` is trained, with
+an optional bias.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from random import Random
 
 from discopy.matrix import get_backend
@@ -63,8 +66,8 @@ class Reservoir:
     >>> sequence = [rng.random() for _ in range(30)]
     >>> targets = [0.] + sequence[:-1]
     >>> reservoir = Reservoir.random(memory=2, seed=42)
-    >>> weights = reservoir.fit(sequence, targets)
-    >>> predictions = reservoir.predict(sequence, weights)[:, 0]
+    >>> readout = reservoir.fit(sequence, targets)
+    >>> predictions = reservoir.predict(sequence, readout)[:, 0]
     >>> errors = [(p - t) ** 2 for p, t in zip(predictions, targets)]
     >>> assert sum(errors) / len(errors) < 1 / 12
 
@@ -74,9 +77,9 @@ class Reservoir:
 
     >>> from discopy.quantum.ansatze import Rydberg
     >>> rydberg = Reservoir(memory=2, inputs=1, unitary=Rydberg(
-    ...     [(0, 0), (0, 8), (8, 0)], duration=0.5, omega=4, delta=2))
-    >>> weights = rydberg.fit(sequence, targets)
-    >>> predictions = rydberg.predict(sequence, weights)[:, 0]
+    ...     [(0, 0), (0, 1), (1, 0)], duration=0.5, omega=4, delta=2))
+    >>> readout = rydberg.fit(sequence, targets)
+    >>> predictions = rydberg.predict(sequence, readout)[:, 0]
     >>> errors = [(p - t) ** 2 for p, t in zip(predictions, targets)]
     >>> assert sum(errors) / len(errors) < 1 / 12
     """
@@ -133,14 +136,30 @@ class Reservoir:
 
     def encode(self, *values: float) -> Circuit:
         """
-        Prepare the input qubits, one X rotation per value in half-turns.
+        Prepare the input qubits, one X rotation per value.
+
+        A value :math:`x` rotates by :math:`x / 2` half-turns, so that the
+        excited state has probability :math:`\\sin^2(\\pi x / 2)`, which
+        grows from zero to one as :math:`x` goes from zero to one: each
+        value of the unit interval is a state of its own, where a rotation
+        by :math:`x` half-turns prepares the same state at zero and one.
 
         Parameters:
             values : As many numbers as there are input qubits.
+
+        Example
+        -------
+        >>> reservoir = Reservoir.random(memory=1)
+        >>> for x in [0, .5, 1]:
+        ...     state = reservoir.encode(x) >> Measure()
+        ...     print(state.eval().array.real.round(3))
+        [1. 0.]
+        [0.5 0.5]
+        [0. 1.]
         """
         if len(values) != self.inputs:
             raise ValueError(f"Expected {self.inputs} values, got {values}.")
-        return Id().tensor(*(Ket(0) >> Rx(value) for value in values))
+        return Id().tensor(*(Ket(0) >> Rx(value / 2) for value in values))
 
     @property
     def cell(self) -> Circuit:
@@ -213,7 +232,7 @@ class Reservoir:
             self.encode(*values), Ty[Circuit.ob](), inputs,
             _later=lambda: self.encoding(rest))
 
-    def run(self, sequence: list, bias: bool = False) -> list:
+    def run(self, sequence: list) -> list:
         """
         The Born probabilities of the memory qubits after each step.
 
@@ -224,11 +243,9 @@ class Reservoir:
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
-            bias : Whether to end each list of features with a constant one.
         """
         if not sequence:
             return []
-        np = get_backend()
         readout = Measure(self.memory).eval()
         inputs, reservoir = self.encoding(sequence), self.stream
         state, channels, features = Ket().eval(mixed=True), {}, []
@@ -237,22 +254,21 @@ class Reservoir:
                 channels[reservoir.now] = reservoir.now.eval(mixed=True)
             state = inputs.now.eval(mixed=True) @ state\
                 >> channels[reservoir.now]
-            probabilities = (state >> readout).array.real.reshape(-1)
-            features.append(np.concatenate((probabilities, np.ones(1)))
-                            if bias else probabilities)
+            features.append((state >> readout).array.real.reshape(-1))
             if i + 1 < len(sequence):
                 inputs, reservoir = inputs.later, reservoir.later
         return features
 
     def fit(self, sequence: list, targets: list,
-            regularisation: float = 1e-6, bias: bool = True):
+            regularisation: float = 1e-6, bias: bool = True) -> Readout:
         """
-        The weights of the linear readout, fit by ridge regression.
+        The linear readout of the features of ``sequence``, fit by ridge
+        regression.
 
-        Minimises the squared error between the features of ``sequence``
-        and ``targets``, with Tikhonov ``regularisation``. With ``bias``,
-        the last row of the weights is an intercept, which the
-        regularisation leaves out.
+        Minimises the squared error between the readout of the features and
+        ``targets``, with Tikhonov ``regularisation`` on the weights. With
+        ``bias``, the readout has an intercept, which the regularisation
+        leaves out, and none otherwise.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
@@ -266,9 +282,8 @@ class Reservoir:
 
         >>> reservoir = Reservoir.random(memory=1, seed=1)
         >>> sequence = [0.1, 0.5, 0.9, 0.3]
-        >>> weights = reservoir.fit(sequence, len(sequence) * [7.], bias=True)
-        >>> predictions = reservoir.predict(sequence, weights, bias=True)
-        >>> assert abs(predictions - 7).max() < 1e-3
+        >>> readout = reservoir.fit(sequence, len(sequence) * [7.])
+        >>> assert abs(reservoir.predict(sequence, readout) - 7).max() < 1e-3
         """
         if len(targets) != len(sequence):
             raise ValueError(
@@ -277,26 +292,56 @@ class Reservoir:
             raise ValueError(
                 f"Expected regularisation >= 0, got {regularisation}.")
         np = get_backend()
-        features = np.stack(self.run(sequence, bias))
-        n_features = np.shape(features)[1]
+        features = np.stack(self.run(sequence))
+        n_samples, n_features = np.shape(features)
         targets = np.reshape(
-            np.array(targets, dtype=float), (len(features), -1))
+            np.array(targets, dtype=float), (n_samples, -1))
+        n_targets = np.shape(targets)[1]
+        if bias:
+            features = np.concatenate(
+                (features, np.ones((n_samples, 1))), axis=1)
         penalty = np.diag(np.array(
-            (n_features - 1) * [1.] + [0. if bias else 1.]))
+            n_features * [1.] + (1 if bias else 0) * [0.]))
         system = np.concatenate(
             (features, np.sqrt(regularisation) * penalty))
         values = np.concatenate(
-            (targets, np.zeros((n_features, np.shape(targets)[1]))))
-        return np.linalg.lstsq(system, values, rcond=None)[0]
+            (targets, np.zeros((np.shape(penalty)[0], n_targets))))
+        solution = np.linalg.lstsq(system, values, rcond=None)[0]
+        return Readout(solution[:n_features], solution[n_features]
+                       if bias else np.zeros(n_targets))
 
-    def predict(self, sequence: list, weights, bias: bool = True):
+    def predict(self, sequence: list, readout: Readout):
         """
-        The linear readout applied to the features of ``sequence``.
+        The readout applied to the features of ``sequence``.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
-            weights : The matrix returned by :meth:`Reservoir.fit`.
-            bias : Whether the weights end with an intercept.
+            readout : The readout returned by :meth:`Reservoir.fit`.
         """
         np = get_backend()
-        return np.stack(self.run(sequence, bias)) @ weights
+        return readout(np.stack(self.run(sequence)))
+
+
+@dataclass(eq=False)
+class Readout:
+    """
+    The linear readout of a reservoir, an affine map from its features to
+    the targets.
+
+    Parameters:
+        weights : A matrix with one row per feature, one column per target.
+        intercept : One number per target, zero for a readout with no bias.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> readout = Readout(np.array([[1.], [2.]]), np.array([3.]))
+    >>> readout(np.array([[1., 1.], [0., 0.]]))
+    array([[6.],
+           [3.]])
+    """
+    weights: object
+    intercept: object
+
+    def __call__(self, features):
+        return features @ self.weights + self.intercept

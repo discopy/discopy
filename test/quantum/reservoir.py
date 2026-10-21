@@ -68,8 +68,8 @@ def test_Reservoir_fit():
     reservoir = Reservoir.random(memory=2, seed=42)
     sequence = [i / 7 % 1 for i in range(20)]
     targets = [0.] + sequence[:-1]
-    weights = reservoir.fit(sequence, targets)
-    predictions = reservoir.predict(sequence, weights)[:, 0]
+    readout = reservoir.fit(sequence, targets)
+    predictions = reservoir.predict(sequence, readout)[:, 0]
     baseline = sum((t - np.mean(targets)) ** 2 for t in targets)
     assert sum((predictions - targets) ** 2) < baseline
 
@@ -86,18 +86,25 @@ def test_Reservoir_stream_unrolls_to_run():
 
 def test_Reservoir_bias():
     reservoir = Reservoir.random(memory=1, seed=4)
-    sequence = [0.3, 0.6, 0.1]
-    features = reservoir.run(sequence, bias=True)
-    assert all(feature[-1] == 1 for feature in features)
-    assert np.allclose(
-        [feature[:-1] for feature in features], reservoir.run(sequence))
-    weights = reservoir.fit(sequence, [1., 2., 3.], bias=False)
-    assert np.shape(weights) == (2, 1)
-    offset = [t + 100 for t in [1., 2., 3.]]
-    shifted = reservoir.fit(sequence, offset, regularisation=1., bias=True)
-    unshifted = reservoir.fit(sequence, [1., 2., 3.], regularisation=1.)
-    assert np.allclose(shifted[:-1], unshifted[:-1])
-    assert np.isclose(shifted[-1, 0], unshifted[-1, 0] + 100)
+    sequence, targets = [0.3, 0.6, 0.1], [1., 2., 3.]
+    readout = reservoir.fit(sequence, targets, bias=False)
+    assert np.shape(readout.weights) == (2, 1)
+    assert np.allclose(readout.intercept, 0)
+    offset = [t + 100 for t in targets]
+    shifted = reservoir.fit(sequence, offset, regularisation=1.)
+    unshifted = reservoir.fit(sequence, targets, regularisation=1.)
+    assert np.allclose(shifted.weights, unshifted.weights)
+    assert np.allclose(shifted.intercept, unshifted.intercept + 100)
+    assert np.allclose(reservoir.predict(sequence, shifted),
+                       reservoir.predict(sequence, unshifted) + 100)
+
+
+def test_Reservoir_encode():
+    reservoir = Reservoir.random(memory=1)
+    probabilities = [
+        (reservoir.encode(x) >> Measure()).eval().array.real[1]
+        for x in np.linspace(0, 1, 11)]
+    assert np.all(np.diff(probabilities) > 0)
 
 
 def test_Reservoir_empty_sequence():
@@ -109,5 +116,5 @@ def test_Reservoir_fit_on_jax():
     pytest.importorskip("jax")
     reservoir = Reservoir.random(memory=1, seed=4)
     with backend("jax"):
-        weights = reservoir.fit([0.3, 0.6, 0.1], [1., 2., 3.])
-    assert np.shape(weights) == (3, 1)
+        readout = reservoir.fit([0.3, 0.6, 0.1], [1., 2., 3.])
+    assert np.shape(readout.weights) == (2, 1)

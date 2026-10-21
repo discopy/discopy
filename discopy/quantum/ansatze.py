@@ -122,55 +122,64 @@ def Sim14ansatz(n_qubits, params) -> Circuit:
 
 
 def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
-            coupling=5420158.53) -> Circuit:
+            weights=None, dmm=0) -> Circuit:
     """
-    Trotterized evolution under the Rydberg Hamiltonian of `Pasqal's QPU
-    <https://docs.pasqal.com/qpu-emulators/emumps/advanced/hamiltonian/>`_.
+    Trotterized evolution under the Rydberg Hamiltonian of Pasqal's QPU, in
+    the dimensionless units of `qoolqit
+    <https://docs.pasqal.com/qoolqit/get_started/qoolqit_model/>`_.
 
     An atom at position :math:`\\vec{r}_i` is a qubit with the ground state
     :math:`\\ket{g} = \\ket{0}` and the Rydberg state
     :math:`\\ket{r} = \\ket{1}`, evolving with :math:`\\hbar = 1` under
 
     .. math::
-        H(t) = \\sum_i \\left( \\frac{\\Omega(t)}{2} \\left(
+        H(t) = \\sum_{i < j} \\frac{n_i n_j}{|\\vec{r}_i - \\vec{r}_j|^6}
+        + \\sum_i \\left( \\frac{\\Omega(t)}{2} \\left(
             \\cos\\varphi(t) \\, \\sigma_x^i
             + \\sin\\varphi(t) \\, \\sigma_y^i \\right)
-            - \\delta(t) \\, n_i \\right)
-        + \\sum_{i < j} \\frac{C_6}{|\\vec{r}_i - \\vec{r}_j|^6} \\, n_i n_j
+            - (\\delta(t) + \\epsilon_i \\Delta(t)) \\, n_i \\right)
 
-    where :math:`n = \\ket{r}\\bra{r}` counts the Rydberg state and the pulse
-    parameters follow the conventions of `Pulser
-    <https://pulser.readthedocs.io>`_, whose :math:`\\Omega / 2` is the
-    :math:`\\Omega` of the page above, which also has no phase. The evolution
-    is cut into :code:`steps` slices of length :code:`dt = duration / steps`
-    on which the waveforms are constant, each approximated to first order by
-    a layer of drives :math:`R_z(-\\varphi) R_x(\\Omega dt) R_z(\\varphi)`,
-    a layer of detunings :math:`U_1(\\delta dt)` and one interaction
-    :math:`CU_1(-C_6 dt / r_{ij}^6)` for each pair of atoms, all exact so
-    that a single step is the exact evolution whenever the terms commute.
+    where :math:`n = \\ket{r}\\bra{r}` counts the Rydberg state. The
+    distances, the times and the energies are dimensionless, the interaction
+    coefficient :math:`C_6` being one: a device reads them back in its own
+    units through qoolqit's ``UnitConverter``, whose time, energy and
+    distance factors satisfy :math:`T E = 1000` and :math:`D^6 E = C_6`.
+    The detuning map modulator adds a detuning :math:`\\Delta(t) \\leq 0` to
+    each atom with a weight :math:`\\epsilon_i \\in [0, 1]`. qoolqit, as
+    Pulser, writes :math:`- \\sin \\varphi \\, \\sigma_y` in the basis
+    where the Rydberg state comes first, which is the sign above in ours.
+
+    The evolution is cut into :code:`steps` slices of length
+    :code:`dt = duration / steps` on which the waveforms are constant, each
+    approximated to first order by a layer of drives
+    :math:`R_z(-\\varphi) R_x(\\Omega dt) R_z(\\varphi)`, a layer of
+    detunings :math:`U_1((\\delta + \\epsilon_i \\Delta) dt)` and one
+    interaction :math:`CU_1(-dt / r_{ij}^6)` for each pair of atoms, all
+    exact so that a single step is the exact evolution whenever the terms
+    commute.
 
     Parameters
     ----------
     positions : list of tuples of floats
-        The coordinates of each atom, in :math:`\\mu m`.
+        The dimensionless coordinates of each atom.
     duration : float
-        The evolution time, in :math:`\\mu s`.
-    omega, delta, phase : float or list of floats
-        The Rabi frequency and detuning in :math:`rad / \\mu s` and the
-        laser phase in :math:`rad`, either constant or one sample per step.
+        The dimensionless evolution time.
+    omega, delta, phase, dmm : float or list of floats
+        The Rabi frequency :math:`\\Omega`, the detuning :math:`\\delta`,
+        the laser phase :math:`\\varphi` and the modulated detuning
+        :math:`\\Delta \\leq 0`, either constant or one sample per step.
     steps : int
         The number of Trotter steps, default is :code:`1`.
-    coupling : float
-        The interaction coefficient :math:`C_6` in
-        :math:`rad \\cdot \\mu m^6 / \\mu s`, default is its value
-        :code:`5420158.53` for Pasqal's devices at Rydberg level 70.
+    weights : list of floats
+        The weight :math:`\\epsilon_i \\in [0, 1]` of the modulated
+        detuning on each atom, default is :code:`0` for all of them.
 
     Example
     -------
     >>> from math import pi
     >>> pprint = lambda c: print(str(c.foliation()).replace(' >>', '\\n  >>'))
-    >>> pprint(Rydberg([(0, 0), (0, 1), (0, 2)], duration=2 * pi,
-    ...                omega=1, delta=1, coupling=64))
+    >>> pprint(Rydberg([(0, 0), (0, .5), (0, 1)], duration=2 * pi,
+    ...                omega=1, delta=1))
     Rx(1) @ Rx(1) @ Rx(1)
       >> U1(1) @ U1(1) @ U1(1)
       >> CU1(-64) @ qubit
@@ -184,12 +193,24 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
       >> Rx(0.5)
       >> Rz(0.5)
       >> U1(0)
+
+    The detuning map modulator detunes each atom by its own weight:
+
+    >>> pprint(Rydberg([(0, 0), (0, 2)], duration=2 * pi, omega=1, delta=1,
+    ...                weights=[0, .5], dmm=-2))
+    Rx(1) @ Rx(1)
+      >> U1(1) @ U1(0)
+      >> CU1(-0.0156)
     """
     from discopy.quantum.gates import Rx, Rz, U1, CU1
 
     if isinstance(steps, bool) or not isinstance(steps, int) or steps <= 0:
         raise ValueError(f"Expected a positive number of steps, got {steps}")
     n_atoms, dt = len(positions), duration / steps
+    weights = n_atoms * [0] if weights is None else list(weights)
+    if len(weights) != n_atoms or not all(0 <= w <= 1 for w in weights):
+        raise ValueError(
+            f"Expected one weight in [0, 1] per atom, got {weights}")
 
     def samples(waveform):
         result = list(waveform)\
@@ -199,12 +220,15 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
                              f"got {len(result)}")
         return result
 
+    if any(sample > 0 for sample in samples(dmm)):
+        raise ValueError(f"Expected a modulated detuning <= 0, got {dmm}")
+
     def strength(source, target):
         squared_distance = sum(
             (x - y) ** 2 for x, y in zip(source, target, strict=True))
         if not squared_distance:
             raise ValueError(f"Atoms at {source} and {target} coincide")
-        return coupling / squared_distance ** 3
+        return 1 / squared_distance ** 3
 
     interactions = [(i, j, strength(positions[i], positions[j]))
                     for i, j in combinations(range(n_atoms), 2)]
@@ -214,16 +238,17 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
         return pulse if phase == 0\
             else Rz(-phase / (2 * pi)) >> pulse >> Rz(phase / (2 * pi))
 
-    def step(omega, delta, phase):
+    def step(omega, delta, phase, dmm):
         result = Id().tensor(*n_atoms * [drive(omega, phase)])
-        result >>= Id().tensor(*n_atoms * [U1(delta * dt / (2 * pi))])
+        result >>= Id().tensor(*(
+            U1((delta + weight * dmm) * dt / (2 * pi)) for weight in weights))
         return result.then(*(
             qubit ** i @ CU1(-u * dt / (2 * pi), distance=j - i)
             @ qubit ** (n_atoms - j - 1) for i, j, u in interactions))
 
     return Id(qubit ** n_atoms).then(*(
         step(*point) for point in zip(
-            samples(omega), samples(delta), samples(phase))))
+            samples(omega), samples(delta), samples(phase), samples(dmm))))
 
 
 def Sim15ansatz(n_qubits, params) -> Circuit:

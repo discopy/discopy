@@ -9,7 +9,7 @@ from discopy.quantum.ansatze import (
     IQPansatz, Sim14ansatz, Sim15ansatz, Rydberg,
 )
 from discopy.quantum.channel import C, Q, CQ, Channel
-from discopy.quantum.reservoir import Reservoir
+from discopy.quantum.reservoir import Reservoir, Readout
 from discopy.quantum.circuit import (
     bit, qubit, Ty, Digit, Qudit, Circuit, Id, Box, Sum, Swap,
     Functor as CircuitFunctor,

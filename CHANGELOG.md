@@ -20,11 +20,18 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   nothing with the memory fed back, and a time series the stream of state
   preparations `Reservoir.encoding` composed with it: the features are read
   between its slices, and unrolling the composite for as many steps gives
-  the state of the memory they are read from. The readout fits an intercept by default,
-  which the regularisation leaves out, as in Fujii and Nakajima's paper;
-  `bias=False` fits without one.
+  the state of the memory they are read from. A value `x` of the series
+  rotates its input qubit by `x / 2` half-turns, so that every value of the
+  unit interval prepares a state of its own. `fit` returns a `Readout`, the
+  affine map from the features to the targets that `predict` applies, with
+  an intercept by default, which the regularisation leaves out, as in
+  Fujii and Nakajima's paper; `bias=False` fits without one.
 - `Rydberg` in `discopy.quantum.ansatze`, the Trotterized time evolution
-  under the Rydberg Hamiltonian of Pasqal's neutral-atom QPU
+  under the Rydberg Hamiltonian of Pasqal's neutral-atom QPU, in the
+  dimensionless units of Pasqal's [qoolqit](https://docs.pasqal.com/qoolqit/),
+  the interaction coefficient being one, with its detuning map modulator:
+  a modulated detuning `dmm`, at most zero, applied to each atom with one
+  of its `weights` in the unit interval
   ([#586](https://github.com/discopy/discopy/pull/586)).
 - `traced.Sum`, `pivotal.Sum`, `compact.Sum` and `frobenius.Sum`, the formal
   sum of morphisms at the four levels of the hierarchy that had none, each
