@@ -72,7 +72,8 @@ def title_of(notebook: Path) -> str:
     derives from the name of the file, and then to the name of the file.
     """
     lines = notebook.read_text().splitlines()
-    end = lines.index("---", 1) + 1 if lines[:1] == ["---"] else 0
+    closing = [i for i, line in enumerate(lines) if i and line == "---"]
+    end = closing[0] + 1 if lines[:1] == ["---"] and closing else 0
     front, body, fenced = lines[1:end - 1] if end else [], lines[end:], False
     for line in body:
         fenced ^= line.startswith("```")
@@ -101,7 +102,8 @@ def export(notebook: Path, *, check: bool) -> None:
 
 def add_theme_style(output: Path, title: str) -> None:
     """Insert :data:`THEME_STYLE` and ``title`` in an exported notebook."""
-    text = re.sub("<title>.*?</title>", f"<title>{escape(title)}</title>",
+    text = re.sub("<title>.*?</title>",
+                  lambda _: f"<title>{escape(title)}</title>",
                   output.read_text(), count=1, flags=re.DOTALL)
     output.write_text(text.replace("</head>", THEME_STYLE + "</head>", 1))
 
