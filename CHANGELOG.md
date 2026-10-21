@@ -798,6 +798,21 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   run when the branch has already moved past the event it is handling,
   rather than drafting a head that no longer exists behind its back
   ([#640](https://github.com/discopy/discopy/issues/640)).
+- `no-todo-on-main.yml`'s guard can draft a pull request and make it ready
+  again: its bot token asks for `contents: write` beside
+  `pull-requests: write`, since changing the draft state of a pull request
+  takes write access to its repository. Every mutation was refused with
+  `Resource not accessible by integration` since
+  `actions/create-github-app-token` went from 1.12.0 to 3.2.0
+  ([#674](https://github.com/discopy/discopy/pull/674)): 1.12.0 read the
+  `permission-*` inputs from `INPUT_PERMISSION_` variables where the runner
+  writes `INPUT_PERMISSION-`, so it never narrowed the token and the
+  missing permission went unnoticed. The token is also requested with
+  `client-id`, which replaces the deprecated `app-id`, from
+  `DISCOPY_BOT_CLIENT_ID` or else the App ID, which the action takes too
+  ([#726](https://github.com/discopy/discopy/issues/726),
+  [#745](https://github.com/discopy/discopy/issues/745),
+  [#779](https://github.com/discopy/discopy/issues/779)).
 - `build.yml` timeouts and a bounded, retried Graphviz install
   ([#591](https://github.com/discopy/discopy/issues/591)).
 - `python.Function.tensor` is variadic like `monoidal.Diagram.tensor`
