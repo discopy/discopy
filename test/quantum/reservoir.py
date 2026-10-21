@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import pytest
 from pytest import raises
 
 from discopy import compact, quantum
@@ -94,3 +95,16 @@ def test_Reservoir_bias():
     unshifted = reservoir.fit(sequence, [1., 2., 3.], regularisation=1.)
     assert np.allclose(shifted[:-1], unshifted[:-1])
     assert np.isclose(shifted[-1, 0], unshifted[-1, 0] + 100)
+
+
+def test_Reservoir_empty_sequence():
+    assert Reservoir.random(memory=1).run([]) == []
+
+
+def test_Reservoir_fit_on_jax():
+    from discopy.matrix import backend
+    pytest.importorskip("jax")
+    reservoir = Reservoir.random(memory=1, seed=4)
+    with backend("jax"):
+        weights = reservoir.fit([0.3, 0.6, 0.1], [1., 2., 3.])
+    assert np.shape(weights) == (3, 1)

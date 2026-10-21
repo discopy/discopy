@@ -222,6 +222,8 @@ class Reservoir:
             sequence : A list of numbers, or tuples of numbers.
             bias : Whether to end each list of features with a constant one.
         """
+        if not sequence:
+            return []
         np = get_backend()
         readout = Measure(self.memory).eval()
         inputs, reservoir = self.encoding(sequence), self.stream
@@ -275,9 +277,8 @@ class Reservoir:
         n_features = np.shape(features)[1]
         targets = np.reshape(
             np.array(targets, dtype=float), (len(features), -1))
-        penalty = np.eye(n_features)
-        if bias:
-            penalty[-1, -1] = 0
+        penalty = np.diag(np.array(
+            (n_features - 1) * [1.] + [0. if bias else 1.]))
         system = np.concatenate(
             (features, np.sqrt(regularisation) * penalty))
         values = np.concatenate(
