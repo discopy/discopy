@@ -969,6 +969,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 ### Project
 
+- Every pull request gets a preview of the docs, built by Read the Docs with
+  its marimo notebooks rendered and linked from a check on the pull request,
+  and `CONTRIBUTING.md` says where to find it; the `docs` artifact of the
+  `build` workflow stays, but its notebooks do not show when opened from disk
+  ([#496](https://github.com/discopy/discopy/issues/496)).
 - `CONTRIBUTING.md` tells a sandboxed contributor to diff its test-suite
   failure set against the same run on the merge base, so that a failure
   already present there reads as pre-existing rather than as a regression
