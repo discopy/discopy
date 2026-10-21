@@ -23,6 +23,22 @@ Summary
     Spider
     Sum
     Bubble
+
+Tensor combinatorial maps
+-------------------------
+
+A :class:`CMap` is a tensor network stored as a combinatorial map, whose
+boxes are tensors, edges are summed indices and boundary ports are free
+indices. Swaps, cups and caps become wiring while spiders stay as boxes.
+
+>>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+>>> assert (vector >> vector[::-1]).to_map().eval().array == 1
+
+>>> with backend('jax'):  # doctest: +EXTRA
+...     import jax, jax.numpy as jnp
+...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
+...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
+...     assert jax.grad(f)(1.) == 4.
 """
 
 from __future__ import annotations
@@ -34,7 +50,7 @@ from discopy import (
     cat, monoidal, rigid, frobenius, cmap, config)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
-from discopy.matrix import (  # noqa: F401
+from discopy.matrix import (  # noqa: F401  pylint: disable=unused-import
     Matrix, backend, set_backend, get_backend,
     NumPy, JAX, PyTorch, TensorFlow)
 from discopy.abc import NamedGeneric
@@ -232,7 +248,7 @@ class Tensor(Matrix):
             cls, n_legs_in, n_legs_out, typ, phase)
 
     @classmethod
-    def copy(cls, x: Dim, n: int) -> Tensor:
+    def copy(cls, x: Dim, n: int = 2) -> Tensor:
         """
         Constructs spiders of dimension `x` with one leg in and `n` legs out.
 
@@ -259,6 +275,7 @@ class Tensor(Matrix):
         ----
         This is *not* the same as the algebraic transpose for non-atomic dims.
         """
+        # pylint: disable=unused-argument  # Dim is self-dual: one transpose
         return type(self)(
             self.array.transpose(), self.cod[::-1], self.dom[::-1])
 
@@ -325,7 +342,7 @@ class Tensor(Matrix):
         for i, var in enumerate(variables):
             onehot = self.zero(Dim(1), dim)
             onehot.array[i] = 1
-            result += onehot @ self.grad(var)
+            result += onehot @ self.grad(var, **params)
         return result
 
 
@@ -462,7 +479,16 @@ class Functor(frobenius.Functor):
             operands = [
                 x for pair in zip(arrays, indices) for x in pair]
             if next(fresh) > config.MAX_EINSUM_INDICES:
-                import opt_einsum
+                try:
+                    import opt_einsum
+                except ImportError as error:
+                    if error.name != "opt_einsum":
+                        raise
+                    raise ImportError(
+                        "Contracting more than "
+                        f"{config.MAX_EINSUM_INDICES} indices requires "
+                        "opt_einsum, run `pip install opt_einsum`."
+                    ) from error
                 array = opt_einsum.contract(
                     *operands, output,
                     optimize=self.optimize, **self.params)
@@ -513,7 +539,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             ob_map=lambda x: Dim(*(
                 getattr(obj, "dim", obj) for obj in x.inside)),
             ar_map=lambda box: box.array,
-            dtype=dtype or self.dtype, optimize=optimize, **params)(self)
+            dtype=dtype or getattr(self, "dtype", None),
+            optimize=optimize, **params)(self)
 
     def to_quimb(self, dtype: type = None) -> "quimb.tensor.Tensor":
         """
@@ -527,12 +554,15 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> t_net = (vector >> vector[::-1]).to_quimb()  # doctest: +EXTRA
         >>> assert t_net.contract(preserve_tensor=True).data == 1
+        >>> t_net = vector[::-1].to_quimb(dtype=complex)  # doctest: +EXTRA
+        >>> assert t_net.contract(preserve_tensor=True).data.dtype == complex
         """
         import quimb.tensor as qtn
+        spider_params = {} if dtype is None else {"dtype": dtype}
         inputs = [
                 qtn.COPY_tensor(
                     d=getattr(dim, 'dim', dim),
-                    inds=(f'inp{i}', f'inp{i}_end')
+                    inds=(f'inp{i}', f'inp{i}_end'), **spider_params
                 ) for i, dim in enumerate(self.dom.inside)]
         tensors = inputs[:]
         scan = [(t, 1) for t in inputs]
@@ -562,7 +592,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         for i, (t, j) in enumerate(scan):
             output = qtn.COPY_tensor(
                 d=t.data.shape[j],
-                inds=(f'out{i}_start', f'out{i}')
+                inds=(f'out{i}_start', f'out{i}'), **spider_params
             )
             qtn.connect(t, output, j, 0)
             tensors.append(output)
@@ -659,34 +689,12 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         for i, var in enumerate(variables):
             onehot = Tensor.zero(Dim(1), dim)
             onehot.array[i] = 1
-            result += Box(str(var), Dim(1), dim, onehot.array) @ self.grad(var)
+            result += Box(str(var), Dim(1), dim, onehot.array)\
+                @ self.grad(var, **params)
         return result
 
 
-class CMap(frobenius.CMap):
-    """
-    A tensor combinatorial map is a tensor network stored as a combinatorial
-    map, whose structure is Einstein notation: boxes are tensors, the
-    2-cycles of the ``edges`` involution are the summed indices and the
-    boundary ports are the free indices.
-
-    Swaps, cups and caps become wiring while spiders stay as boxes, so that
-    every wire has exactly two ends.
-
-    Example
-    -------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-    >>> assert (vector >> vector[::-1]).to_map().eval().array == 1
-
-    >>> with backend('jax'):  # doctest: +EXTRA
-    ...     import jax, jax.numpy as jnp
-    ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
-    ...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
-    ...     assert jax.grad(f)(1.) == 4.
-    """
-    category, dtype = Diagram, None
-
-    eval = Diagram.eval
+CMap = cmap.CMap[Diagram]
 
 
 class Box(frobenius.Box, Diagram):
@@ -903,7 +911,6 @@ Diagram.sum_factory, Diagram.swap_factory = Sum, Swap
 Diagram.permutation_factory = Permutation
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
-Diagram.map_factory = CMap
 Id = Diagram.id
 
 

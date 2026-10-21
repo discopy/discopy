@@ -37,11 +37,13 @@ See also
 from __future__ import annotations
 
 from contextlib import contextmanager
+from operator import index
 from types import ModuleType
+from collections.abc import Sequence
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import MonoidalCategory, NamedGeneric
+from discopy.abc import SymmetricCategory, NamedGeneric, Nat
 from discopy.cat import (
     factory,
     assert_iscomposable,
@@ -54,7 +56,7 @@ if TYPE_CHECKING:
 
 
 @factory
-class Matrix(MonoidalCategory, NamedGeneric['dtype']):
+class Matrix(SymmetricCategory, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -127,7 +129,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
            [0, 2],
            [0, 4]])
     """
-    ob = int
+    ob = Nat
 
     def cast(self, dtype: type) -> Matrix:
         """
@@ -153,12 +155,14 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
                 return cls.__new__(cls[dtype], array, *args, **kwargs)
             return object.__new__(cls)
 
-    def __init__(self, array, dom: int, cod: int):
-        assert_isinstance(dom, int)
-        assert_isinstance(cod, int)
+    def __init__(self, array, dom: Nat, cod: Nat):
+        dom, cod = (Nat(x) if isinstance(x, int) else x for x in (dom, cod))
+        assert_isinstance(dom, Nat)
+        assert_isinstance(cod, Nat)
         self.dom, self.cod = dom, cod
         with backend() as np:
-            self.array = np.array(array, dtype=self.dtype).reshape((dom, cod))
+            self.array = np.array(array, dtype=self.dtype).reshape(
+                (index(dom), index(cod)))
 
     def __eq__(self, other):
         return isinstance(other, self.ar)\
@@ -237,7 +241,8 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
     @classmethod
     def id(cls, dom=0) -> Matrix:
         with backend('numpy') as np:
-            return cls(np.identity(dom, dtype=cls.dtype or int), dom, dom)
+            array = np.identity(index(dom), dtype=cls.dtype or int)
+        return cls(array, dom, dom)
 
     twist = id
 
@@ -253,7 +258,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         if others or other is None:
             return monoidal.Diagram.tensor(self, other, *others)
         assert_isinstance(other, type(self))
-        dom, cod = self.dom + other.dom, self.cod + other.cod
+        dom, cod = self.dom @ other.dom, self.cod @ other.cod
         array = self.zero(dom, cod).array
         array[:self.dom, :self.cod] = self.array
         array[self.dom:, self.cod:] = other.array
@@ -268,7 +273,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         return self if other == 0 else self.__add__(other)
 
     @classmethod
-    def zero(cls, dom: int, cod: int) -> Matrix:
+    def zero(cls, dom: Nat, cod: Nat) -> Matrix:
         """
         Returns the zero matrix of a given shape.
 
@@ -277,10 +282,11 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         >>> assert Matrix.zero(2, 2) == Matrix([0, 0, 0, 0], 2, 2)
         """
         with backend() as np:
-            return cls(np.zeros((dom, cod), dtype=cls.dtype or int), dom, cod)
+            return cls(np.zeros(
+                (index(dom), index(cod)), dtype=cls.dtype or int), dom, cod)
 
     @classmethod
-    def swap(cls, left: int, right: int) -> Matrix:
+    def swap(cls, left: Nat, right: Nat) -> Matrix:
         """
         The matrix that swaps left and right dimensions.
 
@@ -295,6 +301,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         >>> Matrix.swap(2,1)
         Matrix[int64]([0, 1, 0, 0, 0, 1, 1, 0, 0], dom=3, cod=3)
         """
+        left, right = index(left), index(right)
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
         array[:left, right:] = Matrix.id(left).array
@@ -302,6 +309,44 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         return cls(array, dom, cod)
 
     braid = swap
+
+    @classmethod
+    def permutation(
+            cls, xs: Sequence[int],
+            doms: Sequence[int] | None = None) -> Matrix:
+        """
+        The matrix that permutes blocks of dimensions.
+
+        Overrides the default of :class:`discopy.abc.SymmetricCategory`, which
+        composes ``len(xs)`` swaps, by writing each block in one pass.
+
+        Parameters:
+            xs : The permutation, as a list of indices.
+            doms : The dimension of each block, one by default.
+
+        When every block is a single dimension, the matrix is the permutation
+        matrix itself, i.e. ``array[i][j]`` iff ``xs[j] == i``.
+
+        Example
+        -------
+        >>> assert Matrix.permutation([1, 0]) == Matrix.swap(1, 1)
+        >>> Matrix.permutation([1, 2, 0])
+        Matrix[int64]([0, 0, 1, 1, 0, 0, 0, 1, 0], dom=3, cod=3)
+        >>> ones = Matrix.permutation([1, 2, 0], [1, 1, 1])
+        >>> assert ones == Matrix.permutation([1, 2, 0])
+
+        Blocks of more than one dimension move as a whole.
+
+        >>> assert Matrix.permutation([1, 0], [1, 2]) == Matrix.swap(1, 2)
+        """
+        xs = list(xs)
+        doms = len(xs) * [1] if doms is None else list(map(index, doms))
+        if list(range(len(doms))) != sorted(xs) or min(doms, default=0) < 0:
+            raise ValueError
+        offsets = [sum(doms[:i]) for i in range(len(doms))]
+        sources = [offsets[i] + j for i in xs for j in range(doms[i])]
+        array = [[int(i == j) for j in sources] for i in range(len(sources))]
+        return cls(array, len(sources), len(sources))
 
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)
@@ -323,25 +368,26 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         return type(self)(array, self.dom, self.cod)
 
     @classmethod
-    def copy(cls, x: int, n: int) -> Matrix:
+    def copy(cls, x: Nat, n: int = 2) -> Matrix:
+        x = index(x)
         array = [[i + int(j % n * x) == j
                   for j in range(n * x)] for i in range(x)]
         return cls(array, x, n * x)
 
     @classmethod
-    def discard(cls, x: int) -> Matrix:
+    def discard(cls, x: Nat) -> Matrix:
         return cls.copy(x, 0)
 
     @classmethod
-    def merge(cls, x: int, n: int) -> Matrix:
+    def merge(cls, x: Nat, n: int) -> Matrix:
         return cls.copy(x, n).dagger()
 
     @classmethod
-    def ones(cls, x: int) -> Matrix:
+    def ones(cls, x: Nat) -> Matrix:
         return cls.merge(x, 0)
 
     @classmethod
-    def basis(cls, x: int, i: int) -> Matrix:
+    def basis(cls, x: Nat, i: int) -> Matrix:
         """
         The ``i``-th basis vector of dimension ``x``.
 
@@ -354,7 +400,7 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         >>> Matrix.basis(4, 2)
         Matrix[int64]([0, 0, 1, 0], dom=1, cod=4)
         """
-        return cls([[int(i == j) for j in range(x)]], x ** 0, x)
+        return cls([[int(i == j) for j in range(index(x))]], 1, x)
 
     def repeat(self) -> Matrix:
         """
@@ -367,8 +413,8 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
         """
         if self.dtype != bool or self.dom != self.cod:
             raise TypeError(messages.MATRIX_REPEAT_ERROR)
-        return sum(
-            self.id(self.dom).then(*n * [self]) for n in range(self.dom + 1))
+        return sum(self.id(self.dom).then(*n * [self])
+                   for n in range(index(self.dom) + 1))
 
     def trace(self, n=1, left=False) -> Matrix:
         """
@@ -376,16 +422,24 @@ class Matrix(MonoidalCategory, NamedGeneric['dtype']):
 
         Parameters:
             n : The number of dimensions to trace.
+            left : Whether to trace the first ``n`` dimensions rather than
+                the last, by conjugating with swaps.
 
         Example
         -------
         >>> assert Matrix[bool].swap(1, 1).trace() == Matrix[bool].id(1)
+        >>> f = Matrix[bool]([[1, 1], [0, 0]], 2, 2)
+        >>> assert f.trace() == Matrix[bool]([[1]], 1, 1)
+        >>> assert f.trace(left=True) == Matrix[bool]([[0]], 1, 1)
         """
+        dom, cod = index(self.dom) - n, index(self.cod) - n
+        if left:
+            return (self.swap(dom, n) >> self >> self.swap(n, cod)).trace(n)
         A, B, C, D = (row >> self >> column
-                      for row in [self.id(self.dom - n) @ self.ones(n),
-                                  self.ones(self.dom - n) @ self.id(n)]
-                      for column in [self.id(self.cod - n) @ self.discard(n),
-                                     self.discard(self.cod - n) @ self.id(n)])
+                      for row in [self.id(dom) @ self.ones(n),
+                                  self.ones(dom) @ self.id(n)]
+                      for column in [self.id(cod) @ self.discard(n),
+                                     self.discard(cod) @ self.id(n)])
         return A + (B >> D.repeat() >> C)
 
     def lambdify(

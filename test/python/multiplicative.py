@@ -4,19 +4,28 @@ from typing import List
 from pytest import raises
 
 from discopy.biclosed import *
-from discopy.python import *
+from discopy.python import Function, Ty, exp
 
 
 def test_Function():
-    x, y, z = (complex, ), (bool, ), (float, )
+    x, y, z = Ty(complex), Ty(bool), Ty(float)
     f = Function(dom=y, cod=exp(z, x),
                  inside=lambda y: lambda x: abs(x) ** 2 if y else 0)
-    g = Function(dom=x + y, cod=z, inside=lambda x, y: f(y)(x))
+    g = Function(dom=x @ y, cod=z, inside=lambda x, y: f(y)(x))
 
     assert f.uncurry().curry()(True)(1j) == f(True)(1j)
     assert f.uncurry(left=False).curry(left=False)(True)(1j) == f(True)(1j)
     assert g.curry().uncurry()(1j, True) == g(1j, True)
     assert g.curry(left=False).uncurry(left=False)(1j, True) == g(1j, True)
+
+
+def test_tensor_unit_is_none():
+    """ `None` is the unit of `tensor`, so it never swallows the operands
+    that follow it. """
+    f, g = Function.id((int, )), Function.id((bool, ))
+    assert f.tensor() == f.tensor(None) == f
+    assert f.tensor(None, g).dom == f.tensor(g).dom == Ty(int, bool)
+    assert f.tensor(g, None).dom == Ty(int, bool)
 
 
 def test_fixed_point():
@@ -33,3 +42,18 @@ def test_trace():
 def test_list_generic_in_function():
     func = Function(sum, List[int], int)
     assert func([1, 2, 3]) == 6
+
+
+def test_Functor_into_Function_folds_with_matmul():
+    from discopy import monoidal
+    from discopy.monoidal import Ty, Box, Functor
+
+    # python.Function.ob is the free monoid List[type], so a Functor folds the
+    # image of a type with the monoid product @, not tuple + (issue #728).
+    assert Function.ob is monoidal.List[type]
+    x = Ty('x')
+    g = Box('g', x @ x, x)
+    F = Functor(ob_map={x: bool}, ar_map={g: lambda a, b: a and b}, cod=Function)
+    assert F(x @ x) == F(x) @ F(x) == monoidal.List[type](bool, bool)
+    assert F(Ty()) == monoidal.List[type]()
+    assert F(g)(True, True) is True and F(g)(True, False) is False

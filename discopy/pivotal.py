@@ -54,10 +54,10 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, rigid, traced
+from discopy import cat, cmap, rigid, traced
 from discopy.abc import PivotalCategory
 from discopy.cat import factory
-from discopy.utils import deprecated_ob
+from discopy.utils import deprecated_alias
 
 
 class Wire(rigid.Wire):
@@ -92,15 +92,15 @@ class Ty(rigid.Ty):
 
 
 @factory
-class PRO(rigid.PRO, Ty):
+class Nat(rigid.Nat, Ty):
     """
-    A pivotal PRO is a natural number ``n``
+    A pivotal ``Nat`` is a natural number ``n``
     seen as a pivotal type of length ``n``.
 
     Parameters
     ----------
     n : int
-        The length of the PRO type.
+        The natural number.
     """
     l = r = property(lambda self: self)
 
@@ -239,6 +239,17 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
+class Sum(rigid.Sum, traced.Sum, Box):
+    """
+    A pivotal sum is a sum of pivotal diagrams.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+
+
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.
@@ -252,7 +263,10 @@ class Functor(rigid.Functor):
     dom = cod = Diagram
 
 
+Diagram.functor_factory = Functor
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.sum_factory = Sum
+CMap = cmap.CMap[Diagram]
 Id = Diagram.id
 
 
@@ -260,4 +274,4 @@ class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
 
 
-__getattr__ = deprecated_ob(__name__)
+__getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

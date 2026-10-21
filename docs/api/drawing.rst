@@ -7,5 +7,5 @@ drawing
     :template: module.rst
     :toctree: ../_api
 
-    discopy.drawing.drawing
-    discopy.drawing.backend
+    drawing
+    backend

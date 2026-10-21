@@ -47,7 +47,7 @@ Different dependency groups are available (switch with `uv sync --group <group-n
 - `docs`: for generating the documentation
 Since dependency groups are not standard, we also provide equivalents via optional dependencies.
 
-## Run the tests
+## Run the unit tests
 
 After cloning the repository, you should check you haven't broken anything by running the test suite.
 Use `uv sync --dev` before running any part of the test suite, and `uv sync --dev --group all`
@@ -56,11 +56,84 @@ if you want to run the full test suite involving all extra dependencies.
 ```shell
 uv sync --dev --group all
 uv run pflake8 discopy
+uv run pylint discopy
 uv run coverage run -m pytest
 uv run coverage report -m
 ```
 
 Without the extras installed, run `uv run pytest --skip-extra` to skip what needs them.
+
+A sandboxed environment can block some of the extras outright (e.g. no network access to fetch
+the `torch`/`pytket` wheels, no `graphviz` binary), so `--skip-extra` may still leave a fixed set
+of environment-only failures that look identical to a real regression. Diff the failure set
+against the same command run on the merge base rather than guessing: what's new is a regression
+candidate to investigate — your change, a flake, or the environment — and what was already failing
+there is pre-existing, not introduced by your change, though whether either one's cause is the
+sandbox or a latent bug is a separate question to chase down. CI on the pushed branch is the
+authority on the real suite: claim local green only for the checks you actually ran locally.
+
+`pylint` fails on any unused import, variable or argument, and on a score below the
+`fail-under` of `.pylintrc`, which is the score of `main` when it was last raised: fix the
+finding, or disable the message on that line with the reason, and raise `fail-under` to the
+new score when your change lifts it, so that the score never goes down. A law stated with
+`@axiom` is read as the classmethod it is by `.github/scripts/pylint_axioms.py`, the plugin
+`.pylintrc` loads, which also declares the `factory` members a `NamedGeneric` subscript sets and
+lets `hypothesis.strategies` be imported inside a method, where a strategy is built, so that the
+package never imports it; a category of messages the code is not going to follow is disabled
+there with its reason, as `cyclic-import` is: the package imports every module.
+
+## Run the property tests
+
+The Hypothesis property matrix lives in `proptest/`, outside
+pytest's default `testpaths`. Run them explicitly:
+
+```shell
+uv sync --group dev
+uv run pytest proptest/ -n auto -p no:benchmark -v
+```
+
+The cells of the matrix are independent, so `-n auto`
+([pytest-xdist](https://pytest-xdist.readthedocs.io)) runs them on all
+cores, with `-p no:benchmark` unloading the benchmark plugin that is
+incompatible with it; drop both to run serially, e.g. when debugging a
+single cell.
+
+Every cell of the matrix is one axiom of one category, named
+`<module>.<Category>.<law>`, so pytest's own `-k` selects cells for
+shorter, targeted tests.
+
+```shell
+uv run pytest proptest/ -k unitality -v
+uv run pytest proptest/ -k 'Arrow and not typing'
+```
+
+A cell is skipped when its axiom declares that the structure does not
+apply, and xfailed when the law is declared broken, each carrying its
+reason: pass `-rsxX` to list the skips, xfails and unexpected passes with
+their reasons, and `-x` to stop at the first genuine failure.
+
+`proptest/conftest.py` registers four Hypothesis profiles over the
+`.hypothesis/examples` database, selected by `HYPOTHESIS_PROFILE`: `dev`
+by default, `pr` for the small budget a pull request runs with, under a
+fixed `--hypothesis-seed` so that it draws the same examples every time,
+and `explore` for the large one `main` and the nightly run search with.
+A fourth, `shared`, is `dev` reading the database CI uploads as a workflow
+artifact, through a `GITHUB_TOKEN`, so a failure found on CI replays on
+your machine before any search; it reaches GitHub only when selected.
+
+```shell
+HYPOTHESIS_PROFILE=explore uv run pytest proptest/ -n auto -p no:benchmark
+```
+
+`Axiom.falsify` searches for a shrunk counterexample to a law on demand,
+raising `NoSuchExample` when it finds none, which is how a failing cell
+becomes a concrete term to debug in a REPL: call
+`<Category>.<law>.falsify()` on the category that breaks the law, then
+inspect the sides of the `Equation` the axiom returns on the arguments it
+hands back.
+
+The `proptest` GitHub workflow runs this suite on pull requests labelled
+`proptest`, on `main`, nightly and on manual dispatch.
 
 ## Run the benchmarks
 
@@ -137,6 +210,7 @@ Then run:
 
 ```shell
 pflake8 discopy
+pylint discopy
 coverage run -m pytest
 coverage report -m
 ```
@@ -213,7 +287,9 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 
 ## LLM guidelines
 
-We accept contributions from large language models so long as they are explicitly indicated as such.
+We accept contributions from large language models so long as they are explicitly indicated as such and authored under a GitHub handle separate from the human who prompted them, so that authorship stays traceable.
+Each LLM handle is clearly linked to the one human who runs it, and that human must never publish under their own personal handle what should go through it instead: this way, a human can review their own agent's pull requests directly on GitHub without it looking like they are talking to themselves.
+The resulting pull request needs to be approved by at least one human other than that prompter, in addition to any other review it requires.
 The [RULES.md](RULES.md) bind every agent working on a branch or pull request in this repo; they define the checkbox mutex and append-only shared-branch protocol.
 Use our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 

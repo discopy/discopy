@@ -179,6 +179,13 @@ def test_Box_dagger():
     assert f == f.dagger().dagger()
 
 
+def test_Bubble_dagger():
+    f = Box('f', Ob('x'), Ob('y'))
+    b = f.bubble(data=42)
+    assert b.dagger().data == 42 and b.dagger().is_dagger
+    assert b.dagger().dagger() == b
+
+
 def test_Box_repr():
     f = Box('f', Ob('x'), Ob('y'), data=42)
     assert repr(f) == "cat.Box('f', cat.Ob('x'), cat.Ob('y'), data=42)"
@@ -377,3 +384,17 @@ def test_Sum():
     assert len(Sum((), x, y)) == 0
     assert Sum((), x, x).then(f, g) == Sum((), x, z)
     assert Sum((), x, y).dagger() == Sum((), y, x)
+
+
+def test_Functor_then_left_unit():
+    """
+    Composition is unital only on the left up to equality of functors
+    (#648): the identity functor is a pair of functions, so composing it on
+    the left of a functor given by dictionaries yields a pair of functions
+    that acts the same but compares unequal.
+    """
+    x, y = Ob('x'), Ob('y')
+    F = Functor({x: y, y: x}, {})
+    assert F >> Functor.id() == F
+    assert Functor.id() >> F != F
+    assert (Functor.id() >> F)(x) == F(x)

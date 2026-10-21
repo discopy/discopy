@@ -40,6 +40,20 @@ IFRAME = """\
             style="width: 100%; height: 90vh; border: none;"></iframe>
 """
 
+THEME_STYLE = """\
+<style type="text/css">
+/* DisCoPy SVGs turn the elements tagged by drawing.backend.DARK_MODE_STYLE
+   white under a dark prefers-color-scheme; rendered inline in the notebook,
+   they read the browser preference rather than the notebook theme, so these
+   higher-specificity rules retag them by marimo's theme class instead. */
+.light [id^="dark-stroke"] path { stroke: #000000 !important; }
+.light [id^="dark-fill"] g, .light [id^="dark-fill"] use
+{ fill: #000000 !important; stroke: #000000 !important; }
+.dark [id^="dark-stroke"] path { stroke: #ffffff !important; }
+.dark [id^="dark-fill"] g, .dark [id^="dark-fill"] use
+{ fill: #ffffff !important; stroke: #ffffff !important; }
+</style>"""
+
 FALLBACK = """\
 .. note::
 
@@ -73,6 +87,13 @@ def export(notebook: Path, *, check: bool) -> None:
             [sys.executable, "-m", "marimo", "export", "html", notebook.name,
              "-o", str(output), "-f"],
             cwd=NOTEBOOKS, check=True)
+        add_theme_style(output)
+
+
+def add_theme_style(output: Path) -> None:
+    """Insert :data:`THEME_STYLE` in the head of an exported notebook."""
+    text = output.read_text()
+    output.write_text(text.replace("</head>", THEME_STYLE + "</head>", 1))
 
 
 def write_page(notebook: Path, *, rendered: bool) -> None:

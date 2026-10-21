@@ -35,10 +35,11 @@ from __future__ import annotations
 from copy import copy
 from dataclasses import dataclass
 
-from discopy import config, monoidal, braided, traced, hypergraph
+from discopy import config, monoidal, braided, traced, cmap, hypergraph
 from discopy.abc import BalancedCategory
 from discopy.cat import factory
-from discopy.monoidal import Colour, Ty  # noqa: F401
+from discopy.monoidal import (  # noqa: F401  pylint: disable=unused-import
+    Colour, Ty)
 from discopy.utils import factory_name, assert_isatomic
 
 
@@ -362,7 +363,7 @@ class DualRail(Functor):
 
 
 Diagram.functor_factory = Functor
-Diagram.map_factory = traced.CMap
+CMap = cmap.CMap[Diagram]
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist

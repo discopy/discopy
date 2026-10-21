@@ -9,7 +9,7 @@ def test_FinSet():
 
     p = finset.Permutation.swap(2, 3)
     assert isinstance(p, finset.Function)
-    assert isinstance(p, finset.SymmetricCategory)
+    assert isinstance(p, finset.PROP)
     assert p == (3, 4, 0, 1, 2)
     assert p[-1] == 2
     assert p >> p.dagger() == finset.Permutation.id(5)

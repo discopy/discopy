@@ -55,7 +55,7 @@
 \node [] (52) at (7.75, 0.75) {};
 \node [] (53) at (7.75, 0.25) {};
 \node [style=none, fill=white] (54) at (7.0, 0.5) {update};
-\node [circle, fill=white, scale=0.316] (55) at (4.5, 2.0) {$\mapsto$};
+\node [circle, fill=none, scale=0.316] (55) at (4.5, 2.0) {$\mapsto$};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [-, fill={white}] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);

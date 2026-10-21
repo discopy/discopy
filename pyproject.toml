@@ -45,12 +45,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "coverage",
+    "hypothesis",
     "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
     "pytest-benchmark",
     "polars",
+    "pytest-xdist",
 ]
 docs = ["discopy[docs]"]
 quantum = ["discopy[quantum]"]
@@ -83,10 +85,12 @@ grammar = [
 test = [
     "discopy[grammar,quantum]",
     "coverage",
+    "hypothesis",
     "marimo",
     "pyproject-flake8",
     "pylint",
     "pytest",
+    "pytest-xdist",
 ]
 docs  = [
     "IPython",
@@ -97,7 +101,7 @@ docs  = [
     # executed by marimo when rendering the notebooks at docs build time
     "pytket",
     "sympy",
-    "sphinx == 7.2.*",
+    "sphinx == 7.4.*",
     "sphinx-book-theme == 1.1.*",
     "sphinxcontrib-bibtex == 2.5.*",
     "sphinxcontrib-tikz == 0.4.*",
@@ -154,6 +158,7 @@ testpaths = [
     "test/*/*.py",
 ]
 norecursedirs = [
+    ".hypothesis",
     "test/fixtures",
 ]
 addopts = "--doctest-modules --ignore=test/fixtures -p plugin"
@@ -165,3 +170,11 @@ omit = ["test/plugin.py"]
 
 [tool.coverage.report]
 fail_under = 98
+exclude_also = [
+    "if TYPE_CHECKING",
+]
+
+[tool.marimo.display]
+# The docs embed the exported notebooks in iframes, where only the browser's
+# prefers-color-scheme reaches: "system" follows it, "light" ignores it.
+theme = "system"
