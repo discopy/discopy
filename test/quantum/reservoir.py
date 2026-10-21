@@ -32,6 +32,9 @@ def test_Reservoir_errors():
 
 def test_Reservoir_random_depth():
     assert Reservoir.random(memory=1, inputs=0, depth=0).unitary == Id(1)
+    assert Reservoir.random(memory=2, inputs=1, depth=0).unitary == Id(3)
+    with raises(ValueError):
+        Reservoir.random(memory=1, inputs=0, depth=-1)
     assert len(Reservoir.random(memory=1, inputs=0, depth=3).unitary) == 9
 
 

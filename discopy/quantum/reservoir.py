@@ -119,7 +119,11 @@ class Reservoir:
             depth : The number of layers of the ansatz.
             seed : The seed for the phases of the ansatz.
         """
+        if depth < 0:
+            raise ValueError(f"Expected depth >= 0, got {depth}.")
         n, rng = memory + inputs, Random(seed)
+        if not depth:
+            return cls(memory, inputs, Id(n))
         if n == 1:
             return cls(memory, inputs, Id(1).then(*[
                 Sim15ansatz(1, [rng.random() for _ in range(3)])
