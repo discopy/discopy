@@ -68,3 +68,29 @@ def test_Reservoir_fit():
     predictions = reservoir.predict(sequence, weights)[:, 0]
     baseline = sum((t - np.mean(targets)) ** 2 for t in targets)
     assert sum((predictions - targets) ** 2) < baseline
+
+
+def test_Reservoir_stream_unrolls_to_run():
+    reservoir = Reservoir.random(memory=2, inputs=1, depth=1, seed=2)
+    sequence = [0.2, 0.9, 0.4]
+    stream = reservoir.encoding(sequence) >> reservoir.stream
+    for step, feature in enumerate(reservoir.run(sequence)):
+        state = stream.unroll(step).now.eval(mixed=True)
+        assert np.allclose(
+            feature, (state >> Measure(2).eval()).array.real.reshape(-1))
+
+
+def test_Reservoir_bias():
+    reservoir = Reservoir.random(memory=1, seed=4)
+    sequence = [0.3, 0.6, 0.1]
+    features = reservoir.run(sequence, bias=True)
+    assert all(feature[-1] == 1 for feature in features)
+    assert np.allclose(
+        [feature[:-1] for feature in features], reservoir.run(sequence))
+    weights = reservoir.fit(sequence, [1., 2., 3.], bias=False)
+    assert np.shape(weights) == (2, 1)
+    offset = [t + 100 for t in [1., 2., 3.]]
+    shifted = reservoir.fit(sequence, offset, regularisation=1., bias=True)
+    unshifted = reservoir.fit(sequence, [1., 2., 3.], regularisation=1.)
+    assert np.allclose(shifted[:-1], unshifted[:-1])
+    assert np.isclose(shifted[-1, 0], unshifted[-1, 0] + 100)

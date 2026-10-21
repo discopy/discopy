@@ -20,12 +20,16 @@ A quantum reservoir in the sense of Fujii and Nakajima
 :cite:`FujiiNakajima17` is a discrete-time dynamical system in the category
 of classical-quantum channels: a fixed ``unitary`` acts on ``memory``
 qubits kept between time steps together with ``inputs`` fresh qubits
-encoding each value of a time series. Each value induces a channel
-:meth:`Reservoir.step` from memory to memory: prepare the input qubits
-with :meth:`Reservoir.encode`, apply the unitary, then discard the input
-qubits. The features of a time series are the Born probabilities of the
-memory qubits after each step, computed by :meth:`Reservoir.run`; only the
-linear readout :meth:`Reservoir.fit` is trained.
+encoding each value of a time series. It is a monoidal stream
+:class:`discopy.stream.Stream` of circuits, :meth:`Reservoir.stream`, from
+the input qubits to nothing with the memory as feedback, and a time series
+is the stream of state preparations :meth:`Reservoir.encoding` composed
+with it. Its slice at each time step is a channel from memory to memory
+:meth:`Reservoir.step`: prepare the input qubits with
+:meth:`Reservoir.encode`, apply the unitary, then discard the input qubits.
+The features of a time series are the Born probabilities of the memory
+qubits after each step, computed by :meth:`Reservoir.run`; only the
+linear readout :meth:`Reservoir.fit` is trained, with an optional bias.
 """
 
 from __future__ import annotations
@@ -36,6 +40,7 @@ from discopy.matrix import get_backend
 from discopy.quantum.ansatze import Sim15ansatz
 from discopy.quantum.circuit import Circuit, Id, qubit
 from discopy.quantum.gates import Discard, Ket, Measure, Rx
+from discopy.stream import Stream, Ty
 from discopy.utils import assert_isinstance
 
 
@@ -133,6 +138,17 @@ class Reservoir:
             raise ValueError(f"Expected {self.inputs} values, got {values}.")
         return Id().tensor(*(Ket(0) >> Rx(value) for value in values))
 
+    @property
+    def cell(self) -> Circuit:
+        """
+        The channel from the input qubits and the memory to the memory.
+
+        Apply the unitary, then discard the input qubits.
+        """
+        return Circuit.swap(qubit ** self.inputs, qubit ** self.memory)\
+            >> self.unitary\
+            >> Circuit.id(self.memory) @ Discard(self.inputs)
+
     def step(self, *values: float) -> Circuit:
         """
         The channel from memory to memory induced by input ``values``.
@@ -142,44 +158,111 @@ class Reservoir:
         Parameters:
             values : As many numbers as there are input qubits.
         """
-        return Circuit.id(self.memory) @ self.encode(*values)\
-            >> self.unitary\
-            >> Circuit.id(self.memory) @ Discard(self.inputs)
+        return self.encode(*values) @ Circuit.id(self.memory) >> self.cell
 
-    def run(self, sequence: list) -> list:
+    @property
+    def stream(self) -> Stream[Circuit]:
         """
-        The Born probabilities of the memory qubits after each step.
+        The reservoir as a stream from the input qubits to nothing.
 
-        Starts from the all-zero state on the memory qubits.
+        The memory is fed back from each time step to the next, starting
+        from the all-zero state, so that its slice at a later time step is
+        the :meth:`Reservoir.cell`.
+
+        Example
+        -------
+        >>> reservoir = Reservoir.random(memory=2)
+        >>> stream = reservoir.stream
+        >>> print(stream.now.dom, "->", stream.now.cod)
+        qubit -> qubit @ qubit
+        >>> assert stream.later.now == stream.later.later.now == reservoir.cell
+        """
+        inputs, memory = (
+            Ty[Circuit.ob](qubit ** n) for n in (self.inputs, self.memory))
+        first = Circuit.id(self.inputs) @ Ket(*self.memory * [0])\
+            >> self.cell
+        body = Stream[Circuit](
+            first, inputs @ memory.delay(), memory,
+            _later=lambda: Stream[Circuit](self.cell))
+        return body.feedback(dom=inputs, cod=Ty[Circuit.ob](), mem=memory)
+
+    def encoding(self, sequence: list) -> Stream[Circuit]:
+        """
+        The stream of state preparations of the input qubits for a sequence.
+
+        It is defined on as many time steps as the sequence has values.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
+
+        Example
+        -------
+        >>> reservoir = Reservoir.random(memory=2)
+        >>> stream = reservoir.encoding([0.1, 0.2]) >> reservoir.stream
+        >>> print(stream.now.dom, "->", stream.now.cod)
+        Ty() -> qubit @ qubit
         """
-        state = Ket(*self.memory * [0]).eval(mixed=True)
+        values, *rest = sequence
+        values = values if isinstance(values, tuple) else (values, )
+        inputs = Ty[Circuit.ob](qubit ** self.inputs)
+        return Stream[Circuit](
+            self.encode(*values), Ty[Circuit.ob](), inputs,
+            _later=lambda: self.encoding(rest))
+
+    def run(self, sequence: list, bias: bool = False) -> list:
+        """
+        The Born probabilities of the memory qubits after each step.
+
+        Walks the slices of :meth:`Reservoir.encoding` and
+        :meth:`Reservoir.stream` together, i.e. of their composite, so that
+        the memory is read between time steps, evaluating each distinct
+        slice of the reservoir once.
+
+        Parameters:
+            sequence : A list of numbers, or tuples of numbers.
+            bias : Whether to end each list of features with a constant one.
+        """
+        np = get_backend()
         readout = Measure(self.memory).eval()
-        transition = (
-            self.unitary >> Circuit.id(self.memory) @ Discard(self.inputs)
-        ).eval()
-        features = []
-        for values in sequence:
-            values = values if isinstance(values, tuple) else (values, )
-            state = state @ self.encode(*values).eval(mixed=True)\
-                >> transition
-            features.append((state >> readout).array.real.reshape(-1))
+        inputs, reservoir = self.encoding(sequence), self.stream
+        state, channels, features = Ket().eval(mixed=True), {}, []
+        for i in range(len(sequence)):
+            if reservoir.now not in channels:
+                channels[reservoir.now] = reservoir.now.eval(mixed=True)
+            state = inputs.now.eval(mixed=True) @ state\
+                >> channels[reservoir.now]
+            probabilities = (state >> readout).array.real.reshape(-1)
+            features.append(np.concatenate((probabilities, np.ones(1)))
+                            if bias else probabilities)
+            if i + 1 < len(sequence):
+                inputs, reservoir = inputs.later, reservoir.later
         return features
 
     def fit(self, sequence: list, targets: list,
-            regularisation: float = 1e-6):
+            regularisation: float = 1e-6, bias: bool = True):
         """
         The weights of the linear readout, fit by ridge regression.
 
         Minimises the squared error between the features of ``sequence``
-        and ``targets``, with Tikhonov ``regularisation``.
+        and ``targets``, with Tikhonov ``regularisation``. With ``bias``,
+        the last row of the weights is an intercept, which the
+        regularisation leaves out.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
             targets : One number, or tuple of numbers, for each step.
             regularisation : The Tikhonov regularisation parameter.
+            bias : Whether to fit an intercept as well.
+
+        Example
+        -------
+        The bias absorbs a constant offset of the targets:
+
+        >>> reservoir = Reservoir.random(memory=1, seed=1)
+        >>> sequence = [0.1, 0.5, 0.9, 0.3]
+        >>> weights = reservoir.fit(sequence, len(sequence) * [7.], bias=True)
+        >>> predictions = reservoir.predict(sequence, weights, bias=True)
+        >>> assert abs(predictions - 7).max() < 1e-3
         """
         if len(targets) != len(sequence):
             raise ValueError(
@@ -188,23 +271,27 @@ class Reservoir:
             raise ValueError(
                 f"Expected regularisation >= 0, got {regularisation}.")
         np = get_backend()
-        features = np.stack(self.run(sequence))
+        features = np.stack(self.run(sequence, bias))
         n_features = np.shape(features)[1]
         targets = np.reshape(
             np.array(targets, dtype=float), (len(features), -1))
+        penalty = np.eye(n_features)
+        if bias:
+            penalty[-1, -1] = 0
         system = np.concatenate(
-            (features, np.sqrt(regularisation) * np.eye(n_features)))
+            (features, np.sqrt(regularisation) * penalty))
         values = np.concatenate(
             (targets, np.zeros((n_features, np.shape(targets)[1]))))
         return np.linalg.lstsq(system, values, rcond=None)[0]
 
-    def predict(self, sequence: list, weights):
+    def predict(self, sequence: list, weights, bias: bool = True):
         """
         The linear readout applied to the features of ``sequence``.
 
         Parameters:
             sequence : A list of numbers, or tuples of numbers.
             weights : The matrix returned by :meth:`Reservoir.fit`.
+            bias : Whether the weights end with an intercept.
         """
         np = get_backend()
-        return np.stack(self.run(sequence)) @ weights
+        return np.stack(self.run(sequence, bias)) @ weights

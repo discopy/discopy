@@ -15,7 +15,14 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   Born probabilities of the memory qubits and only a ridge-regression
   linear readout is trained, with a `Rydberg` reservoir as example
   ([#519](https://github.com/discopy/discopy/pull/519),
-  [#586](https://github.com/discopy/discopy/pull/586)).
+  [#586](https://github.com/discopy/discopy/pull/586)). A reservoir is a
+  monoidal stream of circuits, `Reservoir.stream`, from the input qubits to
+  nothing with the memory fed back, and a time series the stream of state
+  preparations `Reservoir.encoding` composed with it: the features are read
+  between its slices, and unrolling the composite gives the same state of
+  the memory at every time step. The readout fits an intercept by default,
+  which the regularisation leaves out, as in Fujii and Nakajima's paper;
+  `bias=False` fits without one.
 - `Rydberg` in `discopy.quantum.ansatze`, the Trotterized time evolution
   under the Rydberg Hamiltonian of Pasqal's neutral-atom QPU
   ([#586](https://github.com/discopy/discopy/pull/586)).
