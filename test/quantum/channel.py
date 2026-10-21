@@ -39,3 +39,42 @@ def test_Channel_measure():
     assert Channel.encode(Dim(1)) == Channel.measure(Dim(1)) == Channel.id(C())
     assert Channel.measure(Dim(2, 2))\
         == Channel.measure(Dim(2)) @ Channel.measure(Dim(2))
+    array = np.zeros((3, 3, 3))
+    for i in range(3):
+        array[i, i, i] = 1
+    assert np.all(Channel.measure(Dim(3)).array == array)
+
+
+def test_CQ_str():
+    assert str(C(Dim(2))) == "C(Dim(2))"
+    assert str(Q(Dim(2))) == "Q(Dim(2))"
+    assert str(C(Dim(2)) @ Q(Dim(3))) == "C(Dim(2)) @ Q(Dim(3))"
+    assert str(CQ()) == "CQ()"
+
+
+def test_Channel_dtype_is_preserved():
+    dim = C(Dim(2))
+    assert Channel[float].cups(dim, dim).dtype == float
+    assert Channel[float].discard(Q(Dim(2))).dtype == float
+
+
+def test_Channel_tensor():
+    left, right = Channel.measure(Dim(2)), Channel.id(C(Dim(3)) @ Q(Dim(2)))
+    result = left @ right
+    assert result.dom == left.dom @ right.dom
+    assert result.cod == left.cod @ right.cod
+    assert result.array.shape == \
+        result.dom.to_dim().inside + result.cod.to_dim().inside
+    assert Channel.id(left.dom) @ Channel.id(right.dom)\
+        == Channel.id(left.dom @ right.dom)
+    assert (left @ right).then(
+        Channel.id(left.cod) @ Channel.id(right.cod)) == left @ right
+
+
+def test_Measure_override_bits_evaluates():
+    import numpy as np
+    from discopy.quantum import Measure
+    channel = Measure(override_bits=True).eval(mixed=True)
+    assert channel.dom == C(Dim(2)) @ Q(Dim(2)) and channel.cod == C(Dim(2))
+    assert np.allclose(channel.array, np.tensordot(
+        np.ones(2), Channel.measure(Dim(2)).array, 0))
