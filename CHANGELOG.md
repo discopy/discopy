@@ -735,6 +735,11 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   the module name was shadowed by the `feedback` method below it. Every
   one was an unused argument the linter had been reporting
   ([#768](https://github.com/discopy/discopy/pull/768)).
+- The marimo notebook pages in the docs are titled by the first heading of
+  their notebook, e.g. *QNLP Tutorial* and *What is a diagram?*, in the
+  table of contents, on the page and in the exported HTML, where they were
+  titled by the name of the file, e.g. *Qnlp* and *21 05 03 Tallcat*
+  ([#526](https://github.com/discopy/discopy/issues/526)).
 - The marimo notebook previews in the docs follow the theme switch. The
   notebooks are exported with marimo's `system` theme and the docs relay
   the resolved theme into each notebook's iframe through marimo's
