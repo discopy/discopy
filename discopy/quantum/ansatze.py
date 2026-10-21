@@ -161,7 +161,8 @@ def Rydberg(positions, duration, omega, delta, phase=0, steps=1,
     Parameters
     ----------
     positions : list of tuples of floats
-        The dimensionless coordinates of each atom.
+        The dimensionless coordinates of each atom. A device has a
+        minimum distance between atoms, which its default units make one.
     duration : float
         The dimensionless evolution time.
     omega, delta, phase, dmm : float or list of floats
