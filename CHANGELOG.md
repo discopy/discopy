@@ -13,7 +13,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   to `PROP`, `Monoid` and `Pregroup` ([#326], [#331], [#727]).
 - `discopy.axioms`, laws stated once on `abc` and checked by the Hypothesis
   matrix in `proptest/` on every level of the hierarchy, each free category
-  drawing its terms from its own factories ([#658], [#817]).
+  drawing its terms from its own factories, with the laws of every doctrine
+  and the shapes of their arguments on `abc` ([#658], [#817], [#818]).
 - `discopy.cmap`, combinatorial maps for diagrams in compact categories, with
   `genus`, `is_planar` and `to_compact` ([#338], [#532], [#690]).
 - `discopy.para`, parametric and coparametric maps over any symmetric
@@ -197,3 +198,4 @@ for the changelog of `1.2.1` and earlier.
 [#768]: https://github.com/discopy/discopy/pull/768
 [#812]: https://github.com/discopy/discopy/pull/812
 [#817]: https://github.com/discopy/discopy/pull/817
+[#818]: https://github.com/discopy/discopy/pull/818

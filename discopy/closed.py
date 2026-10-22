@@ -1195,3 +1195,6 @@ Ty.product_factory = Product
 
 class Equation(markov.Equation):
     """ The :class:`markov.Equation` of closed diagrams. """
+
+
+Diagram.equation_factory = Equation
