@@ -107,6 +107,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `pylint` fails on unused names and on a score below `fail-under` ([#768]).
 - CodeRabbit reviews style, and a pull request is a draft while it has a
   `TODO.md` ([#485], [#708]).
+- Every pull request gets a preview of the docs from Read the Docs ([#824]).
 
 ## [1.2.2] - 2025-12-19
 
@@ -193,3 +194,4 @@ for the changelog of `1.2.1` and earlier.
 [#754]: https://github.com/discopy/discopy/pull/754
 [#768]: https://github.com/discopy/discopy/pull/768
 [#812]: https://github.com/discopy/discopy/pull/812
+[#824]: https://github.com/discopy/discopy/pull/824
