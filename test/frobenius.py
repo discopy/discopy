@@ -18,6 +18,14 @@ def test_Functor_call():
         F(F)
 
 
+def test_Functor_phased_spider():
+    x = Ty('x')
+    spider = Spider(1, 2, x, .5)
+    with raises(KeyError):
+        Functor(lambda x: x, {})(spider)
+    assert spider.to_hypergraph().boxes == (spider, )
+
+
 def test_Box_hash():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
@@ -63,3 +71,11 @@ def test_spider_decomposition():
     assert Spider(5, 1, n).unfuse() == (Spider(2, 1, n) @ Spider(2, 1, n)
                                            @ Id(n) >> Spider(2, 1, n) @ Id(n)
                                            >> Spider(2, 1, n))
+
+
+def test_Sum():
+    f = Box('f', 'x', 'x')
+    assert Sum([f]) == f
+    assert isinstance(f + f, Sum) and (f + f).terms == (f, f)
+    image = Functor(lambda x: x, {f: f + f})(f)
+    assert isinstance(image, Sum) and image.terms == (f, f)
