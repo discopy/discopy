@@ -17,3 +17,11 @@ def test_axioms():
     for generator in Diagram.generators:
         box = find(generator.strategy(), lambda _: True)
         assert box == loads(dumps(box)) == eval(repr(box), box.environment())
+
+
+def test_Sum():
+    f = Box('f', 'x', 'x')
+    assert Sum([f]) == f
+    assert isinstance(f + f, Sum) and (f + f).terms == (f, f)
+    image = Functor(lambda x: x, {f: f + f})(f)
+    assert isinstance(image, Sum) and image.terms == (f, f)

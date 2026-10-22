@@ -396,18 +396,12 @@ class Circuit(tensor.Diagram[complex]):
         -------
         array : numpy.ndarray
         """
-        from discopy.quantum.gates import Bra, Ket
+        from discopy.quantum.gates import Ket
         if mixed or self.is_mixed:
             return self.init_and_discard().eval(mixed=True).array.real
         state = (Ket(*(len(self.dom) * [0])) >> self).eval()
-        effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
-                   for j in range(2 ** len(self.cod))]
         with backend() as np:
-            array = np.zeros(len(self.cod) * (2, )) + 0j
-            for effect in effects:
-                array +=\
-                    effect.array * np.absolute((state >> effect).array) ** 2
-        return array
+            return np.absolute(state.array) ** 2
 
     def to_tn(self, mixed=False):
         """

@@ -348,6 +348,14 @@ class Nat(monoidal.Nat, Ty):
     """
     l = r = property(lambda self: self)
 
+    def unwind(self) -> Nat:
+        """
+        A natural number is self-dual, so it is its own unwinding.
+
+        >>> assert Nat(1).unwind() == Nat(1)
+        """
+        return self
+
 
 class Layer(monoidal.Layer):
     """

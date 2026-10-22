@@ -89,6 +89,10 @@ def test_Circuit_conjugate():
 def test_Circuit_measure():
     assert Id().measure() == 1
     assert all(Bits(0).measure(mixed=True) == np.array([1, 0]))
+    circuit = Ket(0, 0, 0) >> H @ H @ H
+    assert np.allclose(circuit.measure(), np.ones((2, 2, 2)) / 8)
+    assert np.allclose(
+        circuit.measure(), np.absolute(circuit.eval().array) ** 2)
 
 
 def test_Box():
@@ -283,6 +287,10 @@ def test_Controlled():
         Controlled(None)
     with raises(ValueError):
         Controlled(X, distance=0)
+    assert np.allclose(CU1(0.5, distance=2).eval().array,
+                       Controlled(U1(0.5), distance=2).eval().array)
+    assert np.allclose(CRz(0.7, distance=-2).eval().array,
+                       Controlled(Rz(0.7), distance=-2).eval().array)
 
 
 def test_adjoint():
