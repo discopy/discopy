@@ -78,6 +78,7 @@ quantum = [
     "pennylane>=0.45.0",
     "pennylane-qiskit>=0.45.0",
     "quimb",
+    "qoolqit",
 ]
 grammar = [
     "nltk",

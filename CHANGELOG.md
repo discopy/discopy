@@ -35,6 +35,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Sum` in `traced`, `pivotal`, `compact` and `frobenius` ([#812]).
 - Ribbon diagrams drawn as dual rails ([#358], [#360]).
 - Rich display of diagrams and drawings in Jupyter ([#445]).
+- `quantum.reservoir`, quantum reservoir computing, and the `Rydberg` ansatz
+  of Pasqal's neutral-atom QPU, checked against qoolqit ([#813]).
 
 ### Changed
 
@@ -193,3 +195,4 @@ for the changelog of `1.2.1` and earlier.
 [#754]: https://github.com/discopy/discopy/pull/754
 [#768]: https://github.com/discopy/discopy/pull/768
 [#812]: https://github.com/discopy/discopy/pull/812
+[#813]: https://github.com/discopy/discopy/pull/813

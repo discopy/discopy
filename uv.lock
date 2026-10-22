@@ -164,6 +164,19 @@ wheels = [
 ]
 
 [[package]]
+name = "auth0-python"
+version = "3.24.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/06/3334c49f2fe98e6e19f31689fa3654372910c865428b2239720f4253ae60/auth0-python-3.24.1.tar.gz", hash = "sha256:62c2e177b9517879bd8632da9eb7668aedd5775fddea87b0e0e1e9a89b9dd096", size = 69231, upload-time = "2023-01-19T15:25:56.655Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/d2/87581b9a278c2da70c7fa80d110f236c14aa004820fe55ce3d3896b7b70a/auth0_python-3.24.1-py2.py3-none-any.whl", hash = "sha256:87dbf603c89fcebfd35f5ba29bc8a820af72a7d5a772f53752ae04d30f191712", size = 122604, upload-time = "2023-01-19T15:25:54.891Z" },
+]
+
+[[package]]
 name = "autograd"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -836,6 +849,7 @@ quantum = [
     { name = "pyzx" },
     { name = "qiskit" },
     { name = "qiskit-aer" },
+    { name = "qoolqit" },
     { name = "quimb" },
     { name = "sympy" },
     { name = "tensornetwork" },
@@ -859,6 +873,7 @@ test = [
     { name = "pyzx" },
     { name = "qiskit" },
     { name = "qiskit-aer" },
+    { name = "qoolqit" },
     { name = "quimb" },
     { name = "sympy" },
     { name = "tensornetwork" },
@@ -929,6 +944,7 @@ requires-dist = [
     { name = "pyzx", marker = "extra == 'quantum'", specifier = "==0.7.3" },
     { name = "qiskit", marker = "extra == 'quantum'" },
     { name = "qiskit-aer", marker = "extra == 'quantum'" },
+    { name = "qoolqit", marker = "extra == 'quantum'" },
     { name = "quimb", marker = "extra == 'quantum'" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = "==7.4.*" },
     { name = "sphinx-book-theme", marker = "extra == 'docs'", specifier = "==1.1.*" },
@@ -2484,6 +2500,23 @@ wheels = [
 ]
 
 [[package]]
+name = "pasqal-cloud"
+version = "0.24.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "auth0-python" },
+    { name = "pulser-core" },
+    { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "requests" },
+    { name = "tenacity" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/39/8a713248130d877ae7952de13d62b4852bec768d7e29a2aad17ab8c10488/pasqal_cloud-0.24.0.tar.gz", hash = "sha256:37f50dfd66744c18976854fedc9f5e80499080844660b53e35de1afc0601f1e8", size = 45025, upload-time = "2026-09-08T09:35:48.757Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/85/0cb19df7f9267517acf3d148fe324a8192d9ac250d1a6bf8c515570e0dc5/pasqal_cloud-0.24.0-py3-none-any.whl", hash = "sha256:b6994be4ea3cefe8637914cd0ee89a0f65e81273aabdbb8d5199cc5ba9915c8f", size = 54767, upload-time = "2026-09-08T09:35:46.336Z" },
+]
+
+[[package]]
 name = "pennylane"
 version = "0.45.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2742,6 +2775,58 @@ wheels = [
 ]
 
 [[package]]
+name = "pulser"
+version = "1.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pasqal-cloud" },
+    { name = "pulser-core" },
+    { name = "pulser-simulation" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/c6/367e2bb4a7b645bca3c8daab26a16b11d43b1591d3f48e57bc732d0f9b1d/pulser-1.9.1-py3-none-any.whl", hash = "sha256:233f42348a57b51d4d22a5ce0c480ca6a9e20872b50b0c53b7b0c6054973e814", size = 6905, upload-time = "2026-09-08T13:14:28.86Z" },
+]
+
+[package.optional-dependencies]
+torch = [
+    { name = "pulser-core", extra = ["torch"] },
+]
+
+[[package]]
+name = "pulser-core"
+version = "1.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonschema" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "referencing" },
+    { name = "scipy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/d2/23d871aacd1b1b9de9500eb5abc08987c63ef8b144df35dd29ba23924101/pulser_core-1.9.1-py3-none-any.whl", hash = "sha256:c736dcc267008af09d727bedffa2aec5bbd0e1cdbf9974a2a6e5d16f30f7fb3b", size = 277177, upload-time = "2026-09-08T13:14:30.3Z" },
+]
+
+[package.optional-dependencies]
+torch = [
+    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
+]
+
+[[package]]
+name = "pulser-simulation"
+version = "1.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pulser-core" },
+    { name = "qutip" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/0e/96fe9f225b1ee541f3e9819491a874f571ba835819eb245219eff3c65fd5/pulser_simulation-1.9.1-py3-none-any.whl", hash = "sha256:ecdbe91e2936ad52d138cfafeb11f3e5521ff5a63cc572a57b160109b3573f2e", size = 47808, upload-time = "2026-09-08T13:14:31.832Z" },
+]
+
+[[package]]
 name = "pure-eval"
 version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2937,6 +3022,11 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/02/a5/5197bfd06417837ac079921c66fa6393f1dea3557272a263cebfef69e432/pyjwt-2.15.0.tar.gz", hash = "sha256:b11c5f9791d7bf51c2b39a81ed669f6b2dbbd669df2942f6c60167e9e3d1abe4", size = 120513, upload-time = "2026-09-23T16:56:00.689Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e8/55/40e45bf052ee8ee12a4dfd785519660f8effa7b065442b91646ec6828619/pyjwt-2.15.0-py3-none-any.whl", hash = "sha256:7a3742debf6b879e912dbb9819ceec1594be812452b78c5f2e2dfc56564954f8", size = 33680, upload-time = "2026-09-23T16:55:59.241Z" },
+]
+
+[package.optional-dependencies]
+crypto = [
+    { name = "cryptography" },
 ]
 
 [[package]]
@@ -3309,6 +3399,20 @@ wheels = [
 ]
 
 [[package]]
+name = "qoolqit"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "pulser", extra = ["torch"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/02/04/d034dd8e99a03baa1215ffd1603ca4c6da8ef65ddbe5a3a0857ab8c36d59/qoolqit-1.4.0.tar.gz", hash = "sha256:f22fccc2718f60b43c177276df175c1956fcefa750621104f0e8f1851320c0bb", size = 450043, upload-time = "2026-08-20T13:33:39.133Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ea/ba/ef6f7b2a6e055ccbf0adc1cd2a1d52f8972e541ebfdb9387ac79a63c3985/qoolqit-1.4.0-py3-none-any.whl", hash = "sha256:d73a9081604cbc0c7efbf4629f0fe9e5121361218165973716640ba85f4e4d30", size = 78590, upload-time = "2026-08-20T13:33:37.622Z" },
+]
+
+[[package]]
 name = "quimb"
 version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3325,6 +3429,37 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f1/ca/0a80995d046b079f34bd78f281ceaaa286a15b06f7afeccc43d7cb2efe1d/quimb-1.14.0.tar.gz", hash = "sha256:8c3706088ba76e281334f719b341d4630e63c36bf4fe53bbfb46325e506dcad3", size = 13882683, upload-time = "2026-05-11T00:27:17.405Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8c/c5/2175e1a8cd38dea77353a82e130a73a97061fa13f1a9e74dd89c35488db6/quimb-1.14.0-py3-none-any.whl", hash = "sha256:aca4bef42536db220bedc845b0fd030a0ce1fe20ae288449d7a9d0e4915ae94b", size = 2025761, upload-time = "2026-05-11T00:27:15.169Z" },
+]
+
+[[package]]
+name = "qutip"
+version = "5.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d5/9e/7a864718df6aec8d37ce43279f4f9edc6edc1235b1114ae25c128c6c9f82/qutip-5.3.1.tar.gz", hash = "sha256:056206b40cbe97c3c7e4f85eff11873406669cd72b2db039fa1a3812767395e9", size = 6931453, upload-time = "2026-08-04T04:35:22.044Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/ea/c75266ef53a470e015a77ab04b477bbf115f4dbcce91a19de3284922d70f/qutip-5.3.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:17933eeb2a1bc73318369fa660d8f1314615f20ffa4d2668e039909f36f56f16", size = 10276901, upload-time = "2026-08-04T04:34:33.464Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/39/f6469c6f7afbb1cf5613c8e68f4eaca42bb20e9ad58a0df344722c82b512/qutip-5.3.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:3daedeec808c87f4b3f899fd874720cf7a5609171afacbc8d2fcdcf7f31a177b", size = 10194790, upload-time = "2026-08-04T04:34:36.15Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/92/11621d6a5d8f791bb788923a817b6a028dab61918fc7673bbdd76238599c/qutip-5.3.1-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d88da28f1757f1ce02ae3a3b6b3432474969302dacef56f996d1b068ed36faed", size = 28611305, upload-time = "2026-08-04T04:34:38.508Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/7e/2b7b1583bc1e194229c269a41a5efb31cd37b90b5065185cd0cc9b1cfb19/qutip-5.3.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:63217730f61da7d410684f77f71498347f8afee22995fa7c93578d32b5623640", size = 28856297, upload-time = "2026-08-04T04:34:41.399Z" },
+    { url = "https://files.pythonhosted.org/packages/44/c7/f136af877138a74020b98414f20917859e793146b6d5edcd33604407f1ad/qutip-5.3.1-cp312-cp312-win_amd64.whl", hash = "sha256:300bd4a8ab301dae405611928a5eeaf4ac8b7dcdddb59652efc130558d71b2ea", size = 9861273, upload-time = "2026-08-04T04:34:43.956Z" },
+    { url = "https://files.pythonhosted.org/packages/53/78/b28020d879c9ae2446cc3a2b3e2e65dfded461fa0c09165b282406d69845/qutip-5.3.1-cp312-cp312-win_arm64.whl", hash = "sha256:73732d1c294d7a53a239225f93ff776470260126377b545a575ccd46e9671d14", size = 9432379, upload-time = "2026-08-04T04:34:46.062Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/68/2fe03b6525a135e53b4a637aea8ab555fc3e78fc3854371f652f45c870c9/qutip-5.3.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:de0a97c26817c1937606d30dcae2246acb3eae45bce826e29d3fc7cccb50acb1", size = 10253227, upload-time = "2026-08-04T04:34:48.339Z" },
+    { url = "https://files.pythonhosted.org/packages/65/47/fed03ed6fb5242dde9bdc6081633598c39c2be9c3b9e0bc7c37e35914cc5/qutip-5.3.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:8e6070cc3ca6f1d006fbecb4a357eecc7e1420016579719925d0cdf93abb37b8", size = 10168933, upload-time = "2026-08-04T04:34:51.274Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/61/9cb2a2125e034e7bd10e1e15d805ac051767a10933bfb0274285fdc57b98/qutip-5.3.1-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:45ed41d771fb2aa250fca920af8604affde55563cbe1921280f585bd86ba3a17", size = 28214089, upload-time = "2026-08-04T04:34:55.028Z" },
+    { url = "https://files.pythonhosted.org/packages/81/85/94a0f48707f1101a971aa410a34ae68f6ef233d2254d96eb9a482f95fb4c/qutip-5.3.1-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a95248e9d06f2d6d7ca9ccdcb77c184066a4e4284eb97408f0354a705043c8cd", size = 28530702, upload-time = "2026-08-04T04:34:58.492Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/5b/60d6dce22e7565d9b9c2f3350a1d5c04d0ab927a404b0da153098ef0d822/qutip-5.3.1-cp313-cp313-win_amd64.whl", hash = "sha256:5b3f95ceb0b7c4c0003c82f3022b674e1881bd40e8b0728305efc59605c05ac5", size = 9844378, upload-time = "2026-08-04T04:35:01.191Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/0f/af06dd5f6301ab02c62557a3890a599427f25ff0f1871c3a70bd86c7349f/qutip-5.3.1-cp313-cp313-win_arm64.whl", hash = "sha256:34abc3daf2dd7c73514e39cbece84076e9a27fe8abfc3f051004b263c4289cdd", size = 9419078, upload-time = "2026-08-04T04:35:03.626Z" },
+    { url = "https://files.pythonhosted.org/packages/96/95/3791a66a05294d0a5afb3f9b0a640fd9a7772688e844156317c19dca4a3b/qutip-5.3.1-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:2ad0a6e5098a2e6390cf939cecef09082d49e558d6d2750e3cceb9672aa3ed67", size = 10380334, upload-time = "2026-08-04T04:35:06.005Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/c2/4c0c5749464729372f7b5570e9d8676f67d8b4af9b202dbe122677c4f4a2/qutip-5.3.1-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:624f738f284579b24757b741dbca898d371450f13dcb4100a3a3031da44335f2", size = 10317471, upload-time = "2026-08-04T04:35:08.254Z" },
+    { url = "https://files.pythonhosted.org/packages/66/19/493e14c9865c6af439c4b8d24f330bf4be5a751b3e30f28978c769674dbe/qutip-5.3.1-cp314-cp314-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b6c1f2119ad530764dea638b65bec0843f63164bb4bdc3d6404e2084d486fd6a", size = 28209297, upload-time = "2026-08-04T04:35:11.388Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/74/8ec1e89ea6acdd98e207ed65a455f6cbad9722d4d6d779e8b60cdaaff168/qutip-5.3.1-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:252db589f736318540bd8e04b5162273aaab4e96a78beda6bb941c4865c2f58a", size = 28474728, upload-time = "2026-08-04T04:35:14.774Z" },
+    { url = "https://files.pythonhosted.org/packages/6c/d4/bc9f58aebc04963b838f1b7be62392515487e395f4c152cfe944adc83019/qutip-5.3.1-cp314-cp314-win_amd64.whl", hash = "sha256:7b891aa2cc71377a8870d3b33d1616874f7308fb93e75c72fce51377ddc084cd", size = 9989879, upload-time = "2026-08-04T04:35:17.443Z" },
+    { url = "https://files.pythonhosted.org/packages/af/f1/48e5571ce69dda9c89f10c4a6efe527deb15042a36b8b123c631df82ff8f/qutip-5.3.1-cp314-cp314-win_arm64.whl", hash = "sha256:c09c138c81fd2187e5d34d37e9ecc62eae9004ba3b801caf732cca093da59462", size = 9572801, upload-time = "2026-08-04T04:35:20.024Z" },
 ]
 
 [[package]]
@@ -3932,6 +4067,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
+]
+
+[[package]]
+name = "tenacity"
+version = "9.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/9e/497c1c8ebe5a5b5d1d4a7511aea22c0bb1a97e3170d98abdef0e1b34265a/tenacity-9.2.1.tar.gz", hash = "sha256:a606b5c808d0cded4a359d5b9932d867ff2a6a6b64d37350260fd01bbdf83839", size = 58261, upload-time = "2026-10-07T12:13:01.633Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d6/26/1ff2b0721ac66a3ec5b1402b333110b352ab0a8724052ac279a7b82d40c4/tenacity-9.2.1-py3-none-any.whl", hash = "sha256:9e56f17539296baab7beabb08b92f6ee3d7be92d8be72d763360677c2ad6580e", size = 32310, upload-time = "2026-10-07T12:13:00.102Z" },
 ]
 
 [[package]]
