@@ -154,7 +154,8 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
-from discopy.abc import Pregroup, RigidCategory
+from discopy.abc import Category, Pregroup, RigidCategory
+from discopy.axioms import GENERATORS
 from discopy.cat import factory
 from discopy.utils import (
     assert_isatomic,
@@ -164,6 +165,8 @@ from discopy.utils import (
     deprecated_alias,
     factory_name,
 )
+
+NO_DAGGER = "Rigid types and diagrams have no dagger, use pivotal instead."
 
 
 class Wire(monoidal.Wire):
@@ -199,6 +202,18 @@ class Wire(monoidal.Wire):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name, dom, cod)
+
+    @classmethod
+    def strategy(
+            cls, *, dom=monoidal.transparent, cod=monoidal.transparent,
+            min_winding=-1, max_winding=1):
+        """ Generate a named wire with a bounded winding number. """
+        from hypothesis import strategies as st
+
+        return st.tuples(
+            st.sampled_from(GENERATORS),
+            st.integers(min_value=min_winding, max_value=max_winding)).map(
+                lambda args: cls(*args, dom=dom, cod=cod))
 
     def dagger(self) -> Wire:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")
@@ -265,6 +280,10 @@ class Ty(Pregroup, biclosed.Ty):
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
     generator_factory = Wire
+
+    dagger_involution = Category.dagger_involution.inapplicable(NO_DAGGER)
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        NO_DAGGER)
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -392,6 +411,10 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     ob = Ty
     layer_factory = Layer
+
+    dagger_involution = Category.dagger_involution.inapplicable(NO_DAGGER)
+    dagger_contravariance = Category.dagger_contravariance.inapplicable(
+        NO_DAGGER)
 
     to_drawing = monoidal.Diagram.to_drawing
 
@@ -758,6 +781,11 @@ class Cup(BinaryBoxConstructor, Box):
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_cup=True)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the cup of an atomic type and its right adjoint. """
+        return cls.atomic_strategy(types).map(lambda x: cls(x, x.r))
+
     def rotate(self, left=False):
         return self.cap_factory(self.right.l, self.left.l) if left\
             else self.cap_factory(self.right.r, self.left.r)
@@ -795,6 +823,11 @@ class Cap(BinaryBoxConstructor, Box):
         dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_cap=True)
+
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the cap of an atomic type and its left adjoint. """
+        return cls.atomic_strategy(types).map(lambda x: cls(x, x.l))
 
     def rotate(self, left=False):
         return self.cup_factory(self.right.l, self.left.l) if left\

@@ -481,6 +481,20 @@ class Permutation(Box):
             draw_as_wires=True, draw_as_permutation=True,
             permutation_indices=tuple(self.perm))
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """
+        Generate a permutation of a type of at least two wires, other than
+        the identity, which is not a box.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+        return types.filter(lambda typ: len(typ) >= 2).flatmap(
+            lambda typ: st.permutations(tuple(range(len(typ)))).map(
+                lambda perm: cls(typ, perm))
+        ).filter(lambda perm: not perm.is_identity)
+
     @property
     def is_identity(self) -> bool:
         """
@@ -595,6 +609,14 @@ class Swap(Permutation, balanced.Braid, Box):
         balanced.Braid.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod,
                      draw_as_wires=True, draw_as_braid=False)
+
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the swap of two atomic types. """
+        from hypothesis import strategies as st
+
+        atoms = cls.atomic_strategy(types)
+        return st.tuples(atoms, atoms).map(lambda args: cls(*args))
 
     def dagger(self):
         return type(self)(self.right, self.left)

@@ -65,7 +65,8 @@ from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import (
-    assert_isatomic, BinaryBoxConstructor, deprecated_alias, factory_name)
+    assert_isatomic, BinaryBoxConstructor, deprecated_alias, factory_name,
+    from_tree)
 
 
 class Wire(monoidal.Wire):
@@ -195,6 +196,15 @@ class Braid(BinaryBoxConstructor, Box):
             self, name, dom, cod, is_dagger=is_dagger, draw_as_braid=True)
         BinaryBoxConstructor.__init__(self, left, right)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the braid of two atomic types, over or under. """
+        from hypothesis import strategies as st
+
+        atoms = cls.atomic_strategy(types)
+        return st.tuples(atoms, atoms, st.booleans()).map(
+            lambda args: cls(*args))
+
     def __repr__(self):
         str_is_dagger = ", is_dagger=True" if self.is_dagger else ""
         return factory_name(type(self)) + \
@@ -202,6 +212,15 @@ class Braid(BinaryBoxConstructor, Box):
 
     def dagger(self):
         return type(self)(self.right, self.left, not self.is_dagger)
+
+    def to_tree(self):
+        tree = super().to_tree()
+        return dict(tree, is_dagger=True) if self.is_dagger else tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        left, right = map(from_tree, (tree['left'], tree['right']))
+        return cls(left, right, is_dagger=tree.get('is_dagger', False))
 
 
 def hexagon(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:

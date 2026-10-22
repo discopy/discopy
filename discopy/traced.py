@@ -129,6 +129,7 @@ from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401  pylint: disable=unused-import
 from discopy.utils import (
     factory_name,
+    from_tree,
     assert_isinstance,
     assert_istraceable,
 )
@@ -204,14 +205,44 @@ class Trace(Box, monoidal.Bubble):
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, name, dom, cod)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """
+        Generate the trace of a free box over one atomic wire, on either
+        side.
+        """
+        from hypothesis import strategies as st
+
+        types = cls.ob.strategy() if types is None else types
+
+        def traces(args):
+            memory, dom, cod, left = args
+            arg_dom, arg_cod = (memory @ dom, memory @ cod) if left\
+                else (dom @ memory, cod @ memory)
+            return cls.ar.box_factory.strategy(
+                types=types, dom=arg_dom, cod=arg_cod).map(
+                    lambda arg: cls(arg, left))
+
+        return st.tuples(
+            cls.atomic_strategy(types), types, types, st.booleans()
+        ).flatmap(traces)
+
     def __str__(self):
         return self.name
 
     def __repr__(self):
-        return factory_name(type(self)) + f"({self.arg}, left={self.left})"
+        return factory_name(type(self)) + f"({self.arg!r}, left={self.left})"
 
     def dagger(self):
         return self.arg.dagger().trace(left=self.left)
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'arg': self.arg.to_tree(), 'left': self.left}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['arg']), left=tree['left'])
 
     def to_drawing(self):
         return self.ar.to_drawing(self)
