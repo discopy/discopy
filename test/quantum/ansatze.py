@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from pytest import raises
+from pytest import importorskip, mark, raises
 
 from discopy.quantum.ansatze import (
     IQPansatz, Sim14ansatz, Sim15ansatz, Rydberg)
@@ -39,6 +39,27 @@ def rydberg_hamiltonian(positions, omega, delta, phase, detunings=None):
         result = result + 1 / distance ** 6\
             * place(number, i) @ place(number, j)
     return result
+
+
+def qoolqit_hamiltonian(positions, omega, delta, phase, weights, dmm):
+    qoolqit = importorskip("qoolqit")
+    from qoolqit.drive import DetuningMapModulator
+    from qoolqit.waveforms import ConstantWaveform
+    from pulser_simulation import QutipEmulator
+    device = qoolqit.MockDevice()
+    device.set_energy_unit(1)
+    register = qoolqit.Register.from_coordinates(positions)
+    drive = qoolqit.Drive(
+        amplitude=ConstantWaveform(1, omega),
+        detuning=ConstantWaveform(1, delta), phase=phase,
+        dmm=DetuningMapModulator(ConstantWaveform(1, dmm), dict(
+            zip(register.qubits_ids, weights))))
+    program = qoolqit.QuantumProgram(register, drive)
+    program.compile_to(device)
+    result = QutipEmulator.from_sequence(
+        program.compiled_sequence).get_hamiltonian(500).full()
+    flip = np.eye(2 ** len(positions))[::-1]
+    return flip @ result @ flip
 
 
 def rydberg_exact(positions, duration, omega, delta, phase, detunings=None):
@@ -133,3 +154,13 @@ def test_Rydberg_steps():
     assert exported is Rydberg
     with raises(ValueError):
         Rydberg([(0, 0)], 1, 1, 0, steps=True)
+
+
+@mark.parametrize("positions, omega, delta, phase, weights, dmm", [
+    ([(0, 0), (1, 0), (0, 1.2)], .7, -.4, .3, [0, .5, 1], -2.),
+    ([(0, 0), (.8, .3)], 1.5, 2., -1.1, [1, .2], -.5)])
+def test_Rydberg_qoolqit(positions, omega, delta, phase, weights, dmm):
+    assert np.allclose(
+        qoolqit_hamiltonian(positions, omega, delta, phase, weights, dmm),
+        rydberg_hamiltonian(positions, omega, delta, phase,
+                            [w * dmm for w in weights]))

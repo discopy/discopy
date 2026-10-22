@@ -31,7 +31,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
   dimensionless units of Pasqal's [qoolqit](https://docs.pasqal.com/qoolqit/),
   the interaction coefficient being one, with its detuning map modulator:
   a modulated detuning `dmm`, at most zero, applied to each atom with one
-  of its `weights` in the unit interval
+  of its `weights` in the unit interval, tested against the Hamiltonian
+  qoolqit compiles to Pulser, `qoolqit` joining the `quantum` extra
   ([#586](https://github.com/discopy/discopy/pull/586)).
 - `traced.Sum`, `pivotal.Sum`, `compact.Sum` and `frobenius.Sum`, the formal
   sum of morphisms at the four levels of the hierarchy that had none, each
