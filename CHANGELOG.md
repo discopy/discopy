@@ -35,6 +35,9 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `Sum` in `traced`, `pivotal`, `compact` and `frobenius` ([#812]).
 - Ribbon diagrams drawn as dual rails ([#358], [#360]).
 - Rich display of diagrams and drawings in Jupyter ([#445]).
+- `grammar.proofnet`, parses as proof nets read back to lambda terms, and
+  `grammar.neural`, a parser into them with PyTorch, which the `grammar` extra
+  installs ([#798]).
 
 ### Changed
 
@@ -192,4 +195,5 @@ for the changelog of `1.2.1` and earlier.
 [#747]: https://github.com/discopy/discopy/pull/747
 [#754]: https://github.com/discopy/discopy/pull/754
 [#768]: https://github.com/discopy/discopy/pull/768
+[#798]: https://github.com/discopy/discopy/pull/798
 [#812]: https://github.com/discopy/discopy/pull/812

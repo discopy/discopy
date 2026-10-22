@@ -13,3 +13,5 @@ grammar
     pregroup
     dependency
     abstract
+    proofnet
+    neural

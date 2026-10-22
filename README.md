@@ -22,6 +22,7 @@ DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wiki
   - `Function`, i.e. wires as types and boxes as functions with either disjoint union (`python.additive`) or tuples (`python.multiplicative`)
   - `Tensor`, i.e. wires as dimensions and boxes as arrays from [NumPy](https://numpy.org), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork), [JAX](https://github.com/google/jax) and [Quimb](https://quimb.readthedocs.io/en/latest)
 * an implementation of formal grammars ([context-free](https://en.wikipedia.org/wiki/Context-free_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar), [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar) or [dependency](https://en.wikipedia.org/wiki/Dependency_grammar)) with interfaces to [lambeq](https://cqcl.github.io/lambeq), [spaCy](https://spacy.io/) and [NLTK](https://www.nltk.org/)
+* a `ProofNet` data structure for parses as axiom linkings, read back to lambda terms and decoded from the scores of a neural parser trained with [PyTorch](https://pytorch.org/)
 * an implementation of [categorical quantum mechanics](https://en.wikipedia.org/wiki/Categorical_quantum_mechanics) interfacing with:
   - [tket](https://github.com/CQCL/tket) for circuit compilation
   - [PyZX](https://github.com/Quantomatic/pyzx) for optimisation with the [ZX calculus](https://zxcalculus.com/)
