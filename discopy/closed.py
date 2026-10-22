@@ -191,6 +191,7 @@ class Product(biclosed.Wire):
         if not self.factors:
             return f"{type(self).__name__}()"
         first, *others = self.factors
+        first = str(first) if len(first) == 1 else f"({first})"
         return f"{first}.product({', '.join(map(str, others))})"
 
     def __repr__(self):
