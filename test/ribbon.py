@@ -1,7 +1,5 @@
 from discopy.ribbon import *
-from discopy.axioms import assert_axioms
-from hypothesis import find
-from discopy.utils import dumps, loads
+from discopy.axioms import assert_axioms, assert_generators
 
 
 def test_to_ribbons_width():
@@ -99,6 +97,4 @@ def test_rotate():
 
 def test_axioms():
     assert_axioms(Diagram)
-    for generator in Diagram.generators:
-        box = find(generator.strategy(), lambda _: True)
-        assert box == loads(dumps(box)) == eval(repr(box), box.environment())
+    assert_generators(Diagram)

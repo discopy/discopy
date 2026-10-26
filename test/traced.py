@@ -1,15 +1,14 @@
 from pytest import raises
 
 from discopy.traced import *
-from discopy.axioms import assert_axioms
-from hypothesis import find
-from discopy.utils import dumps, loads
+from discopy.axioms import assert_axioms, assert_generators
 from discopy.utils import AxiomError
 
 
 def test_trace_repr():
-    f = Box('f', 'x', 'x')
-    assert repr(f.trace()) == f"traced.Trace({f!r}, left=False)"
+    assert repr(Box('f', 'x', 'x').trace()) == (
+        "traced.Trace(traced.Box('f', monoidal.Ty(cat.Ob('x')), "
+        "monoidal.Ty(cat.Ob('x'))), left=False)")
 
 
 def test_trace_error():
@@ -49,9 +48,7 @@ def test_trace_vanishing():
 
 def test_axioms():
     assert_axioms(Diagram)
-    for generator in Diagram.generators:
-        box = find(generator.strategy(), lambda _: True)
-        assert box == loads(dumps(box)) == eval(repr(box), box.environment())
+    assert_generators(Diagram)
 
 
 def test_Sum():

@@ -603,3 +603,19 @@ def assert_axioms(*categories) -> None:
                 assert axiom.broken, axiom
             else:
                 assert verdict is NotImplemented or verdict, axiom
+
+
+def assert_generators(diagram: type) -> None:
+    """
+    Check that one of each generator of a free category, as its own
+    :meth:`strategy` draws it, reads back from its tree and its ``repr``.
+
+    Parameters:
+        diagram : The diagram class whose :attr:`generators` are checked.
+    """
+    from hypothesis import find
+
+    for generator in diagram.generators:
+        box = find(generator.strategy(), lambda _: True)
+        assert box == loads(dumps(box))
+        assert box == eval(repr(box), box.environment())

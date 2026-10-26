@@ -6,7 +6,7 @@ from pytest import raises
 
 from discopy.cat import *
 from discopy.monoidal import *
-from discopy.axioms import assert_axioms
+from discopy.axioms import assert_axioms, assert_generators
 from discopy.drawing import spiral
 from discopy.utils import AxiomError, from_tree
 
@@ -766,9 +766,7 @@ def test_List():
 
 def test_axioms():
     assert_axioms(Ty, Nat, Diagram)
-    for generator in Diagram.generators:
-        box = find(generator.strategy(), lambda _: True)
-        assert box == loads(dumps(box)) == eval(repr(box), box.environment())
+    assert_generators(Diagram)
 
 
 def test_strategy():
