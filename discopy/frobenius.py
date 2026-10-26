@@ -275,12 +275,16 @@ class Spider(Box):
 
     @classmethod
     def strategy(cls, *, types=None):
-        """ Generate a spider of an atomic type with up to two legs a side. """
+        """
+        Generate a spider of an atomic type with up to two legs a side,
+        with or without a phase.
+        """
         from hypothesis import strategies as st
 
         legs = st.sampled_from(((0, 1), (1, 0), (1, 2), (2, 1), (2, 2)))
-        return st.tuples(legs, cls.atomic_strategy(types)).map(
-            lambda args: cls(*args[0], args[1]))
+        phases = st.sampled_from((None, 0.25, 0.5))
+        return st.tuples(legs, cls.atomic_strategy(types), phases).map(
+            lambda args: cls(*args[0], args[1], args[2]))
 
     @property
     def phase(self):
@@ -289,7 +293,7 @@ class Spider(Box):
 
     def __repr__(self):
         phase_repr = "" if self.phase is None \
-            else f", phase={repr(self.phase)}"
+            else f", {repr(self.phase)}"
         return factory_name(type(self)) + \
             f"({len(self.dom)}, {len(self.cod)}, {repr(self.typ)}{phase_repr})"
 

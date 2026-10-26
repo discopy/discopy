@@ -1,6 +1,5 @@
 from discopy.biclosed import *
-from discopy.axioms import assert_axioms
-from hypothesis import find
+from discopy.axioms import assert_axioms, assert_generators
 from discopy import biclosed, cat
 from discopy.utils import dumps, loads
 from pytest import raises
@@ -233,6 +232,4 @@ def test_transparency():
 
 def test_axioms():
     assert_axioms(Ty, Diagram)
-    for generator in Diagram.generators:
-        box = find(generator.strategy(), lambda _: True)
-        assert box == loads(dumps(box)) == eval(repr(box), box.environment())
+    assert_generators(Diagram)

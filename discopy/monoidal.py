@@ -986,14 +986,15 @@ class Layer(cat.Box, ColouredMonoid):
             for i in range(min(len(source), len(target)) + 1):
                 if source[:i] != target[:i]:
                     break
-                for j in range(len(source) - i + 1):
-                    for k in range(len(target) - i + 1):
-                        if not j and not k:
-                            continue
-                        for rest, pairs in decompositions(
-                                source[i + j:], target[i + k:], n_boxes - 1):
-                            yield (source[:i], ) + rest, (
-                                (source[i:i + j], target[i:i + k]), ) + pairs
+                for j, k in itertools.product(
+                        range(len(source) - i + 1),
+                        range(len(target) - i + 1)):
+                    if not j and not k:
+                        continue
+                    for rest, pairs in decompositions(
+                            source[i + j:], target[i + k:], n_boxes - 1):
+                        yield (source[:i], ) + rest, (
+                            (source[i:i + j], target[i:i + k]), ) + pairs
 
         if dom is None or cod is None:
             boundary, is_dom = (dom, True) if dom is not None else (cod, False)
