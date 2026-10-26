@@ -1125,7 +1125,8 @@ class Drawing(TracedCategory, RichDisplay):
         differently-coloured diagrams.
 
         Parameters:
-            colour : The :class:`monoidal.Colour` of the slot's background.
+            colour : The :class:`monoidal.Colour` of the slot's background,
+                or ``None`` for the page.
             params : Passed to :meth:`bubble`, e.g. ``height`` or ``width``.
         """
         from discopy.monoidal import Ty
@@ -1184,7 +1185,7 @@ class Drawing(TracedCategory, RichDisplay):
 
     def add(self, other: Drawing, symbol="+", space=1):
         """ Concatenate two drawings with a symbol in between. """
-        from discopy.monoidal import Box, Ty, transparent
+        from discopy.monoidal import Box, Ty
         if getattr(self, "zero_drawing", False):
             return other
         if getattr(other, "zero_drawing", False):
@@ -1195,12 +1196,12 @@ class Drawing(TracedCategory, RichDisplay):
         scalar = Box(
             symbol, Ty(), Ty(), draw_as_spider=True, color=TRANSPARENT
         ).to_drawing()
-        if self.cod.cod != transparent or other.dom.dom != transparent:
+        if self.cod.cod is not None or other.dom.dom is not None:
             # The boundary colours are painted, e.g. an Equation between
-            # terms of different colours: give each term its own transparent
+            # terms of different colours: give each term its own uncoloured
             # slot, as for Drawing.frame.
             self, other = (
-                term.slot(transparent, height=height)
+                term.slot(None, height=height)
                 for term in (self, other))
         result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.

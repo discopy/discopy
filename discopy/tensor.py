@@ -418,7 +418,7 @@ class Functor(frobenius.Functor):
             return other
         if isinstance(other, Bubble):
             return self(other.arg).map(other.func)
-        if isinstance(other, (
+        if other is None or isinstance(other, (
                 cat.Ob, cat.Box, monoidal.Colour, monoidal.Ty)):
             return super().__call__(other)
         if isinstance(other, cmap.CMap):

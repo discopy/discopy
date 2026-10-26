@@ -24,8 +24,8 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - Lambda terms in `biclosed` and `closed`, with products, `Let` and
   capture-avoiding substitution, to and from diagrams ([#322], [#332], [#400],
   [#489]).
-- 2-categories, i.e. coloured regions, drawn with an opt-in legend ([#354],
-  [#355], [#357], [#754]).
+- 2-categories, i.e. coloured regions, `None` where there is no colour, drawn
+  with an opt-in legend ([#354], [#355], [#357], [#754], [#830]).
 - `symmetric.Permutation` and `symmetric.Layer`, with `Swap` the two-wire
   permutation ([#362], [#594]).
 - `monoidal.List`, the free monoid on a type ([#747]).
@@ -198,3 +198,4 @@ for the changelog of `1.2.1` and earlier.
 [#824]: https://github.com/discopy/discopy/pull/824
 [#825]: https://github.com/discopy/discopy/pull/825
 [#829]: https://github.com/discopy/discopy/pull/829
+[#830]: https://github.com/discopy/discopy/pull/830

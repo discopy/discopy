@@ -436,7 +436,7 @@ class Backend(ABC):
     @staticmethod
     def on_neutral_canvas(*types):
         """
-        Whether wires of the given types only border transparent regions,
+        Whether wires of the given types only border regions with no colour,
         i.e. the neutral canvas, so that their strokes and labels may adapt
         to a dark page rather than keep a static colour readable over their
         region.
@@ -447,8 +447,7 @@ class Backend(ABC):
                 colour for obj in getattr(typ, "inside", ())
                 for colour in (
                     getattr(obj, "dom", None), getattr(obj, "cod", None))]
-            if any(colour is not None and colour.name != TRANSPARENT
-                   for colour in colours):
+            if any(colour is not None for colour in colours):
                 return False
         return True
 
@@ -590,9 +589,8 @@ class Backend(ABC):
         The distinct painted region colours of a diagram, keyed by colour.
 
         Returns an order-preserving mapping from each colour's name to its
-        :class:`monoidal.Colour`, suitable for a drawing legend.
-        :data:`discopy.config.TRANSPARENT` is omitted as it is the neutral
-        background.
+        :class:`monoidal.Colour`, suitable for a drawing legend. A region
+        with no colour is omitted as it is the neutral background.
         """
         colours = {}
         types = [graph.dom, graph.cod]
@@ -604,7 +602,7 @@ class Backend(ABC):
                 candidates += [
                     getattr(obj, "dom", None), getattr(obj, "cod", None)]
             for colour in candidates:
-                if colour is not None and colour.name != TRANSPARENT:
+                if colour is not None:
                     colours.setdefault(colour.name, colour)
         return colours
 
@@ -630,11 +628,13 @@ class Backend(ABC):
             if top.y < bottom.y:
                 top, bottom = bottom, top
             typ = getattr(source, 'x', None) or getattr(target, 'x', None)
-            separators.append(((top, control, bottom), typ.cod.name))
+            separators.append(
+                ((top, control, bottom), getattr(typ.cod, "name", None)))
         for node in graph.box_nodes:
             if node.box.draw_as_wires or node.box.draw_as_spider:
                 continue
-            for side, colour in [(0, None), (1, node.box.dom.cod.name)]:
+            for side, colour in [
+                    (0, None), (1, getattr(node.box.dom.cod, "name", None))]:
                 top = graph.positions[Node(f"box-corner-{side}1", j=node.j)]
                 bottom = graph.positions[Node(f"box-corner-{side}0", j=node.j)]
                 separators.append(
@@ -688,7 +688,7 @@ class Backend(ABC):
         bands, each consecutive pair of separators bounds one cell, filled
         with the colour that its left boundary carries -- ``graph.dom.dom``
         for the leftmost cell, with the sides of the canvas as outermost
-        boundaries. Transparent cells are left out as they are the neutral
+        boundaries. Cells with no colour are left out as they are the neutral
         background, see :meth:`region_colours`, and so are the cells
         underneath a box, whose left side carries no colour at all.
 
@@ -704,7 +704,7 @@ class Backend(ABC):
         for bottom, top in zip(heights, heights[1:]):
             left, colour = (
                 Point(0, top), Point(0, bottom), Point(0, bottom)
-            ), graph.dom.dom.name
+            ), getattr(graph.dom.dom, "name", None)
             for right, next_colour in Backend.region_band(
                     separators, bottom, top):
                 if right != left:
@@ -713,8 +713,7 @@ class Backend(ABC):
             cells.append((left, (
                 Point(graph.width, top), Point(graph.width, bottom),
                 Point(graph.width, bottom)), colour))
-        return [
-            cell for cell in cells if cell[-1] not in (None, TRANSPARENT)]
+        return [cell for cell in cells if cell[-1] is not None]
 
     def draw_region_cell(self, left, right, facecolor):
         """
@@ -742,7 +741,7 @@ class Backend(ABC):
         """
         Draw the label of a wire, in a colour readable over the region to
         its right, which :meth:`draw_regions` paints underneath it. A
-        transparent region is the page, taken to be white and adapted to
+        region with no colour is the page, taken to be white and adapted to
         when it is dark, see :meth:`Matplotlib.dark_gid`.
         """
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
@@ -759,7 +758,7 @@ class Backend(ABC):
         j -= pad_j
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
         background = getattr(x, "cod", None)
-        adaptive = background is None or background.name == TRANSPARENT
+        adaptive = background is None
         color = self.readable_foreground(
             "white" if adaptive else background.name)
         self.draw_text(
