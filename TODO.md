@@ -16,3 +16,12 @@
 - [x] The shapes of the laws' arguments move from `abc` to `axioms`, the laws stay in `abc`
 - [x] Reidemeister move 1 for the left and the right trace on `CompactCategory`
 - [ ] `axioms` renamed `testable`: proposed on its thread as its own PR from `main`, waiting on toumix
+
+> cubic, 2026-10-26, on #818: `compact.Diagram` restates currying though it has no `curry`; the free trace's inapplicable naturality reaches `pivotal`; `feedback.Trace` has no `delay`; right dinaturality slices `[-0:]`; a test catches `Exception`; `#562` is cited for currying; `CMap.is_boundary_connected` calls a rigid hypergraph partial.
+
+- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 10:05 `pivotal.Diagram` declares the four trace naturality laws broken, which they are there, rather than inheriting the free trace's inapplicable
+- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 10:05 `feedback.Trace.delay` delays what it traces
+- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 10:05 No `[-0:]` slice in the trace and feedback shapes
+- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 10:05 The shape test catches `AxiomError`, and the currying reason does not cite #562
+- [x] Compact currying stays: `compact.Diagram` curries through cups and caps, its cells pass
+- [x] The rigid hypergraph is partial: `rigid.Cap(x.l, x.l.l).to_hypergraph()` raises, the docstring stays
