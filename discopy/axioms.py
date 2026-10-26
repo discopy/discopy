@@ -608,14 +608,20 @@ def assert_axioms(*categories) -> None:
 def assert_generators(diagram: type) -> None:
     """
     Check that one of each generator of a free category, as its own
-    :meth:`strategy` draws it, reads back from its tree and its ``repr``.
+    :meth:`strategy` draws it, satisfies its :meth:`serialisation` and
+    :meth:`transparency` laws, with the same single shot as
+    :func:`assert_axioms`.
 
     Parameters:
         diagram : The diagram class whose :attr:`generators` are checked.
     """
-    from hypothesis import find
+    from hypothesis import Phase, find, settings
 
+    single_shot = settings(
+        max_examples=1, phases=(Phase.generate, ), database=None)
     for generator in diagram.generators:
-        box = find(generator.strategy(), lambda _: True)
-        assert box == loads(dumps(box))
-        assert box == eval(repr(box), box.environment())
+        box = find(
+            generator.strategy(), lambda _: True, settings=single_shot)
+        for law in (generator.serialisation, generator.transparency):
+            verdict = law(box)
+            assert verdict is NotImplemented or verdict, law

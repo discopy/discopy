@@ -9,4 +9,4 @@
 - [x] `Spider.strategy` draws a phase
 - [x] `Spider.__repr__` prints its phase as the argument `__init__` reads, where it printed `phase=` and did not read back: found by drawing phases
 - [x] Constrained layers drawing free boxes only stays: proposal 2 of the description, answered on its thread
-- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 09:25 `assert_generators` draws single-shot with no example database, and checks each generator by its own `serialisation` and `transparency` laws (cubic's second pass)
+- [x] `assert_generators` draws single-shot with no example database, and checks each generator by its own `serialisation` and `transparency` laws (cubic's second pass)
