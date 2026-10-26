@@ -487,6 +487,9 @@ class Swap(Permutation, markov.Swap, Box):
 class Trace(markov.Trace, Box):
     """ A trace in a feedback category. """
 
+    def delay(self, n_steps=1):
+        return type(self)(self.arg.delay(n_steps), left=self.left)
+
 
 class Copy(markov.Copy, Box):
     """

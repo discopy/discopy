@@ -716,7 +716,8 @@ class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
         traced_in, traced_out = (
             (traced.dom[:len(sliding.cod)], traced.cod[:len(sliding.dom)])
             if cls.left else
-            (traced.dom[-len(sliding.cod):], traced.cod[-len(sliding.dom):]))
+            (traced.dom[len(traced.dom) - len(sliding.cod):],
+             traced.cod[len(traced.cod) - len(sliding.dom):]))
         if (traced_in, traced_out) != (sliding.cod, sliding.dom):
             raise ValueError("Expected compatible trace sliding boundaries.")
         return super().__new__(cls, (traced, sliding))

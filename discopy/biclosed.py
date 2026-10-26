@@ -343,9 +343,9 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
     currying_left = BiclosedCategory.currying_left.failing(
-        "Currying does not evaluate back, see #562.")
+        "A free curry is a box, so currying does not evaluate back.")
     currying_right = BiclosedCategory.currying_right.failing(
-        "Currying does not evaluate back, see #562.")
+        "A free curry is a box, so currying does not evaluate back.")
 
 
 class Box(monoidal.Box, Diagram):

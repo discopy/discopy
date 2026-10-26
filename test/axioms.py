@@ -235,7 +235,7 @@ def test_trace_shapes():
     x, y = traced.Ty('x'), traced.Ty('y')
     f, g = traced.Box('f', x @ y, x @ y), traced.Box('g', y, y)
     assert TraceSuperposing(f, y) == (f, y)
-    with raises(Exception):
+    with raises(AxiomError):
         TraceSuperposing(traced.Box('h', x, y), y)
     assert TraceNaturalityLeft(f, x, g) == (f, x, g)
     assert TraceNaturalityRight(traced.Box('f', y @ x, y @ x), x, g)
