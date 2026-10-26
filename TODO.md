@@ -2,7 +2,7 @@
 >
 > cubic, 2026-10-26, requested by toumix: the generator round-trip loop is copied into 14 test modules; `test/traced.py` derives its expected repr from `repr(f)`; `decompositions` nests four loops deep; `Spider.strategy` never draws a phase; constrained layers only draw free boxes.
 
-- [ ] `is_monochrome` goes, waiting on toumix's pick on https://github.com/discopy/discopy/pull/817#discussion_r4375511919: A, colourless types as one-object categories, or B, no `None` for an unasked boundary anywhere
+- [ ] `is_monochrome` goes, waiting on toumix: "Could we remove `transparent` and use `None` instead?", answered yes on https://github.com/discopy/discopy/pull/817#discussion_r4375687378, as its own PR from `main` that this one then merges
 - [x] One helper for the generator round-trips, beside `assert_axioms`
 - [x] `test_trace_repr` pins its literal
 - [x] `decompositions` within three levels
