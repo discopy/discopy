@@ -196,5 +196,5 @@ for the changelog of `1.2.1` and earlier.
 [#768]: https://github.com/discopy/discopy/pull/768
 [#812]: https://github.com/discopy/discopy/pull/812
 [#824]: https://github.com/discopy/discopy/pull/824
-[#829]: https://github.com/discopy/discopy/pull/829
 [#825]: https://github.com/discopy/discopy/pull/825
+[#829]: https://github.com/discopy/discopy/pull/829
