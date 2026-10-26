@@ -195,8 +195,8 @@ class FreeCategory(Category):
 
     def __init__(self, inside, dom, cod, _scan=True):
         ob = type(self).ob
-        dom = dom if isinstance(dom, ob) else ob(dom)
-        cod = cod if isinstance(cod, ob) else ob(cod)
+        dom = dom if dom is None or isinstance(dom, ob) else ob(dom)
+        cod = cod if cod is None or isinstance(cod, ob) else ob(cod)
         self.dom, self.cod, self.inside = dom, cod, tuple(inside)
         if _scan:
             for generator in inside:

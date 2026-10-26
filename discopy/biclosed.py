@@ -206,7 +206,7 @@ class Wire(monoidal.Wire):
     """
     A biclosed object is a self-dagger :class:`monoidal.Wire`, i.e. its left
     and right colours always match. Exponentials do not interact meaningfully
-    with colours, so for now we assume everything is transparent.
+    with colours, so for now we assume nothing is coloured.
     """
     def dagger(self) -> Wire:
         return self
