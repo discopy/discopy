@@ -11,7 +11,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 
 - `discopy.abc`, the abstract base classes of the hierarchy, from `Category`
   to `PROP`, `Monoid` and `Pregroup` ([#326], [#331], [#727]).
-- `discopy.axioms`, laws stated once on `abc` and checked by the Hypothesis
+- `discopy.testable`, laws stated once on `abc` and checked by the Hypothesis
   matrix in `proptest/`, so far on `cat.Arrow` ([#658]).
 - `discopy.cmap`, combinatorial maps for diagrams in compact categories, with
   `genus`, `is_planar` and `to_compact` ([#338], [#532], [#690]).

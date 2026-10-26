@@ -1,6 +1,6 @@
 """
 A pylint plugin reading a law stated with ``@axiom`` as the classmethod it
-is, see ``discopy.axioms``.
+is, see ``discopy.testable``.
 
 The decorator returns an ``Axiom``, a descriptor binding the law to the
 class it is accessed on, so the first parameter of a law is its category.

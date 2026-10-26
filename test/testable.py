@@ -11,7 +11,7 @@ from hypothesis.errors import NoSuchExample
 from pytest import raises
 
 from discopy import cat
-from discopy.axioms import (
+from discopy.testable import (
     C1,
     Axiom,
     AxiomFailure,
