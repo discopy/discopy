@@ -13,6 +13,6 @@
 
 > toumix, 2026-10-26, on #818: "All of these should go in axioms, they are not abstract base classes", "Seems like this should go in axioms rather than abc, same for TraceSliding below", "Again, all of these Testable subclasses should go to axioms", "Especially because while the machinery for axioms are defined there, the axioms themselves go in the abc module", "This makes me think the axioms module could be called `testable` instead" and "There should also be two other reidemeister 1 for left and right trace"
 
-- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 09:50 The shapes of the laws' arguments move from `abc` to `axioms`, the laws stay in `abc`
-- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 09:50 Reidemeister move 1 for the left and the right trace on `CompactCategory`
+- [x] The shapes of the laws' arguments move from `abc` to `axioms`, the laws stay in `abc`
+- [x] Reidemeister move 1 for the left and the right trace on `CompactCategory`
 - [ ] `axioms` renamed `testable`: proposed on its thread as its own PR from `main`, waiting on toumix

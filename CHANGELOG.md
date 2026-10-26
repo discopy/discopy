@@ -14,7 +14,7 @@ Changes since [`1.2.2`](https://github.com/discopy/discopy/releases/tag/1.2.2).
 - `discopy.axioms`, laws stated once on `abc` and checked by the Hypothesis
   matrix in `proptest/` on every level of the hierarchy, each free category
   drawing its terms from its own factories, with the laws of every doctrine
-  and the shapes of their arguments on `abc` ([#658], [#817], [#818]).
+  on `abc` and the shapes of their arguments ([#658], [#817], [#818]).
 - `discopy.cmap`, combinatorial maps for diagrams in compact categories, with
   `genus`, `is_planar` and `to_compact` ([#338], [#532], [#690]).
 - `discopy.para`, parametric and coparametric maps over any symmetric

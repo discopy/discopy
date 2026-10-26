@@ -11,31 +11,29 @@ from hypothesis.errors import NoSuchExample
 from pytest import raises
 
 from discopy import biclosed, cat, feedback, monoidal, traced
-from discopy.abc import (
+from discopy.axioms import (
     Atomic,
+    Axiom,
+    AxiomFailure,
     BoundaryConnected,
+    C1,
+    ComposablePair,
+    ComposableTriple,
+    Equation,
     FeedbackJoining,
     FeedbackVanishing,
+    Grid,
     HorizontalPair,
     LeftCurrying,
     NonEmpty,
     RightCurrying,
     Square,
+    Testable,
     TraceDinaturalityLeft,
     TraceDinaturalityRight,
     TraceNaturalityLeft,
     TraceNaturalityRight,
     TraceSuperposing,
-)
-from discopy.axioms import (
-    C1,
-    Axiom,
-    AxiomFailure,
-    ComposablePair,
-    ComposableTriple,
-    Equation,
-    Grid,
-    Testable,
     assert_axioms,
     axiom,
     resolve,
