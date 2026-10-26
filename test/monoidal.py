@@ -14,7 +14,6 @@ from discopy.utils import AxiomError, from_tree
 def test_Ty():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     assert Ty.ob is Colour and Ty.ar is Ty
-    assert isinstance(transparent, cat.Ob)
     assert isinstance(x, cat.FreeCategory)
     assert isinstance(x, cat.Ob) and not isinstance(x, Wire)
     assert x @ y != y @ x
@@ -29,7 +28,9 @@ def test_coloured_Ty():
     y = Ty(Wire("y", green, blue))
     path = x @ y
 
-    assert Ty() == Ty.id(transparent) == Ty.id(Colour())
+    assert Ty() == Ty.id() == Ty.id(None) and Ty().dom is None
+    with raises(TypeError):
+        Colour()
     assert path.dom == red and path.cod == blue
     assert Ty.id(red) >> path == path == path >> Ty.id(blue)
     assert path[:0] == Ty.id(red)
@@ -774,7 +775,7 @@ def test_strategy():
     x, y = Ty('x'), Ty('y')
     assert find(Ty.strategy(), lambda typ: len(typ) == 3)
     assert find(Nat.strategy(), lambda n: n == Nat(2)) == Nat(2)
-    assert Nat.strategy(dom=Colour('red')).is_empty
+    assert find(Nat.strategy(dom=Colour('red')), lambda _: True).dom is None
     assert find(Box.atomic_strategy(), lambda _: True) == Ty('a')
     assert find(Diagram.strategy(dom=x, cod=y), lambda _: True).dom == x
     assert find(Diagram.strategy(cod=y), lambda _: True).cod == y
@@ -788,7 +789,7 @@ def test_strategy():
     assert find(Diagram.strategy(min_leaves=2), lambda _: True).size >= 2
     assert find(Diagram.strategy(boundary_connected=True), lambda d: d.size)
     assert find(Dim.strategy(), lambda dim: len(dim) == 2) == Dim(2, 2)
-    assert Dim.strategy(cod=Colour('red')).is_empty
+    assert find(Dim.strategy(cod=Colour('red')), lambda _: True).cod is None
     assert loads(dumps(Dim(2, 3))) == Dim(2, 3)
     assert find(Ty.strategy(max_length=0), lambda _: True) == Ty()
     assert find(Diagram.strategy(), lambda d: any(

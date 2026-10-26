@@ -200,7 +200,7 @@ def test_bubble_boundary_is_visible():
     box_node, = Drawing.frame_opening(x, y, z, monoidal.Ty("")).box_nodes
     assert not Backend.is_frame_boundary(box_node)
     slot = Drawing.from_box(
-        monoidal.Box("f", x, x)).slot(monoidal.Colour())
+        monoidal.Box("f", x, x)).slot(None)
     frame_box_nodes = [n for n in slot.box_nodes if n.box.frame_boundary]
     assert frame_box_nodes
     assert all(map(Backend.is_frame_boundary, frame_box_nodes))
@@ -404,7 +404,7 @@ def test_region_cells_do_not_overlap():
 
 
 def test_region_transparent_cells_erase_to_the_background():
-    # A transparent region enclosed by coloured ones is not painted at all
+    # A region with no colour enclosed by coloured ones is not painted at all
     # rather than overpainted in opaque white, see issue #521.
     u = monoidal.Ty(monoidal.Wire("u"))
     frame = monoidal.Box("f", u, u).bubble(dom=u, cod=u, draw_as_frame=True)

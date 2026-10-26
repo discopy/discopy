@@ -61,6 +61,8 @@ def test_Arrow_init():
         Arrow((), Ob('x'), 1)
     with raises(TypeError) as err:
         Arrow((Ob('x'), ), Ob('x'), Ob('x'))
+    with raises(TypeError):
+        Arrow((), None, None)  # Only a type has None, i.e. no colour.
 
 
 def test_Arrow_len():
