@@ -323,6 +323,11 @@ class Ty(cat.Ob, cat.FreeCategory, ColouredMonoid):
         cat.Ob.__init__(self, type(self).__name__)
 
     @classmethod
+    def cast_ob(cls, x: Colour | str | None) -> Colour | None:
+        """ No colour is ``None``, any other boundary a :class:`Colour`. """
+        return None if x is None else super().cast_ob(x)
+
+    @classmethod
     def id(cls, dom: Colour | None = None) -> Ty:
         """ The empty type on a colour, with no colour by default. """
         return cls.ar(inside=(), dom=dom, cod=dom, _scan=False)

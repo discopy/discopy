@@ -194,9 +194,7 @@ class FreeCategory(Category):
     generator_factory = None
 
     def __init__(self, inside, dom, cod, _scan=True):
-        ob = type(self).ob
-        dom = dom if dom is None or isinstance(dom, ob) else ob(dom)
-        cod = cod if cod is None or isinstance(cod, ob) else ob(cod)
+        dom, cod = map(self.cast_ob, (dom, cod))
         self.dom, self.cod, self.inside = dom, cod, tuple(inside)
         if _scan:
             for generator in inside:
@@ -210,6 +208,11 @@ class FreeCategory(Category):
             if previous != cod:
                 raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
                     previous, cod, previous, cod))
+
+    @classmethod
+    def cast_ob(cls, x):
+        """ Turn a boundary argument into an object of ``cls.ob``. """
+        return x if isinstance(x, cls.ob) else cls.ob(x)
 
     @classmethod
     def id(cls, dom=None):

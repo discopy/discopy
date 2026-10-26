@@ -72,7 +72,7 @@ class Wire(monoidal.Wire):
     """
     A braided object is a self-dagger :class:`monoidal.Wire`. From braided
     categories onwards colours stop making sense, i.e. we cannot add colours to
-    braids or swaps in any meaningful way, so it never has a colour.
+    braids or swaps in any meaningful way, so it defaults to no colour.
     """
     def dagger(self) -> Wire:
         return self
