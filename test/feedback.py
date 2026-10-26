@@ -104,7 +104,8 @@ def test_Permutation_delay():
 def test_axioms():
     assert_axioms(Ty, Diagram)
     assert_generators(Diagram)
-    assert Wire.strategy(dom=monoidal.Colour('red')).is_empty
+    assert find(Wire.strategy(dom=monoidal.Colour('red')),
+                lambda _: True).dom is None
     with raises(AxiomError):
         find(Feedback.strategy(), lambda _: True).dagger()
 

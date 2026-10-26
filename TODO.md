@@ -2,7 +2,7 @@
 >
 > cubic, 2026-10-26, requested by toumix: the generator round-trip loop is copied into 14 test modules; `test/traced.py` derives its expected repr from `repr(f)`; `decompositions` nests four loops deep; `Spider.strategy` never draws a phase; constrained layers only draw free boxes.
 
-- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-26 16:55 `is_monochrome` goes, by merging #817 now that #830 landed; toumix asked "Could we remove `transparent` and use `None` instead?", answered yes on https://github.com/discopy/discopy/pull/817#discussion_r4375687378, as its own PR from `main` that this one then merges
+- [x] `is_monochrome` goes, by merging #817 now that #830 landed; toumix asked "Could we remove `transparent` and use `None` instead?", answered yes on https://github.com/discopy/discopy/pull/817#discussion_r4375687378, as its own PR from `main` that this one then merges
 - [x] One helper for the generator round-trips, beside `assert_axioms`
 - [x] `test_trace_repr` pins its literal
 - [x] `decompositions` within three levels
@@ -15,7 +15,7 @@
 
 - [x] The shapes of the laws' arguments move from `abc` to `axioms`, the laws stay in `abc`
 - [x] Reidemeister move 1 for the left and the right trace on `CompactCategory`
-- [ ] `axioms` renamed `testable`: proposed on its thread as its own PR from `main`, waiting on toumix
+- [ ] `axioms` renamed `testable`: #829, from `main` with no alias (toumix: "no need for an alias, this axiom module was never released"), which this merges once it lands
 
 > cubic, 2026-10-26, on #818: `compact.Diagram` restates currying though it has no `curry`; the free trace's inapplicable naturality reaches `pivotal`; `feedback.Trace` has no `delay`; right dinaturality slices `[-0:]`; a test catches `Exception`; `#562` is cited for currying; `CMap.is_boundary_connected` calls a rigid hypergraph partial.
 

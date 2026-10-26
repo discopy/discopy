@@ -197,16 +197,15 @@ class Wire(monoidal.Wire):
         super().__setstate__(state)
 
     def __init__(self, name: str, z: int = 0,
-                 dom: monoidal.Colour = monoidal.transparent,
-                 cod: monoidal.Colour = monoidal.transparent):
+                 dom: monoidal.Colour | None = None,
+                 cod: monoidal.Colour | None = None):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name, dom, cod)
 
     @classmethod
     def strategy(
-            cls, *, dom=monoidal.transparent, cod=monoidal.transparent,
-            min_winding=-1, max_winding=1):
+            cls, *, dom=None, cod=None, min_winding=-1, max_winding=1):
         """ Generate a named wire with a bounded winding number. """
         from hypothesis import strategies as st
 
@@ -244,7 +243,7 @@ class Wire(monoidal.Wire):
     def __repr__(self):
         cls_name = factory_name(type(self))
         z_repr = ', z=' + repr(self.z) if self.z else ''
-        if self.dom == self.cod == monoidal.transparent:
+        if self.dom is None and self.cod is None:
             return f"{cls_name}({self.name!r}{z_repr})"
         return f"{cls_name}({self.name!r}{z_repr}, " \
             f"dom={self.dom!r}, cod={self.cod!r})"
