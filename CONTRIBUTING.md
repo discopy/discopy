@@ -113,7 +113,7 @@ factories, so a new level of the hierarchy declares nothing, and a new
 structural box declares how one of itself is drawn, in a `strategy`
 classmethod beside its constructor, which `monoidal.Diagram.generators`
 finds through the `*_factory` attribute naming it. A concrete category
-states its own `strategy`, see `discopy.axioms.Testable`.
+states its own `strategy`, see `discopy.testable.Testable`.
 
 A cell is skipped when its axiom declares that the structure does not
 apply, and xfailed when the law is declared broken, each carrying its

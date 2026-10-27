@@ -2,7 +2,7 @@ from pytest import raises
 
 from discopy.monoidal import Colour
 from discopy.rigid import *
-from discopy.axioms import assert_axioms, assert_generators
+from discopy.testable import assert_axioms, assert_generators
 
 
 def test_Ob_init():

@@ -1,5 +1,5 @@
 from discopy.braided import *
-from discopy.axioms import assert_axioms, assert_generators
+from discopy.testable import assert_axioms, assert_generators
 
 
 x, y, z = map(Ty, "xyz")
