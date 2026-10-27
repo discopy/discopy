@@ -3,7 +3,7 @@ from random import choice, seed
 
 from discopy import *
 from discopy.feedback import *
-from discopy.axioms import assert_axioms, assert_generators
+from discopy.testable import assert_axioms, assert_generators
 from hypothesis import find
 
 

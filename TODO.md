@@ -15,7 +15,7 @@
 
 - [x] The shapes of the laws' arguments move from `abc` to `axioms`, the laws stay in `abc`
 - [x] Reidemeister move 1 for the left and the right trace on `CompactCategory`
-- [WIP] @session_01F6hn2cPwGcF56EfWivjiDo-2026-10-27 17:35 `axioms` renamed `testable`: #829, from `main` with no alias (toumix: "no need for an alias, this axiom module was never released"), which this merges once it lands
+- [x] `axioms` renamed `testable`: #829, from `main` with no alias (toumix: "no need for an alias, this axiom module was never released"), which this merges once it lands
 
 > cubic, 2026-10-26, on #818: `compact.Diagram` restates currying though it has no `curry`; the free trace's inapplicable naturality reaches `pivotal`; `feedback.Trace` has no `delay`; right dinaturality slices `[-0:]`; a test catches `Exception`; `#562` is cited for currying; `CMap.is_boundary_connected` calls a rigid hypergraph partial.
 

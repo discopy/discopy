@@ -12,7 +12,7 @@ the characteristic generator of its categorical structure as an
 Software dependencies between modules go top-to-bottom, left-to-right and
 forgetful functors between categories go the other way.
 
-Each class also declares its :func:`discopy.axioms.axiom` equations, which
+Each class also declares its :func:`discopy.testable.axiom` equations, which
 every free category inherits along with the structure they axiomatise:
 :class:`Category` states the unitality and associativity of composition,
 the typing of its identities and composites, and the involution and
@@ -60,7 +60,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import ClassVar
 
-from discopy.axioms import (
+from discopy.testable import (
     Atomic, Axiom, ComposablePair, ComposableTriple, Equation, FeedbackJoining,
     FeedbackVanishing, HorizontalPair, LeftCurrying, NonEmpty, RightCurrying,
     Square, TraceDinaturalityLeft, TraceDinaturalityRight, TraceNaturalityLeft,
@@ -103,7 +103,7 @@ class Category[C0, C1: Category](ABC):
         A class that quotients its equations overrides this, e.g. by
         hypergraph isomorphism from symmetric categories on, so an axiom
         built with it is checked up to whatever quotient the category
-        defines — and :meth:`discopy.axioms.Axiom.modulo` weakens it
+        defines — and :meth:`discopy.testable.Axiom.modulo` weakens it
         further.
         """
         return Equation(*terms)

@@ -148,7 +148,7 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, markov, hypergraph
 from discopy.abc import Category, FeedbackCategory
-from discopy.axioms import GENERATORS
+from discopy.testable import GENERATORS
 from discopy.utils import (
     deprecated_alias,
     factory, factory_name, from_tree, assert_isinstance, AxiomError,

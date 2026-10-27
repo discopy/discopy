@@ -64,7 +64,7 @@ from warnings import warn
 from discopy import abc, cat, drawing, hypergraph, cmap, messages
 from discopy.abc import (
     ColouredMonoid, Monoid, MonoidalCategory, NamedGeneric, classproperty)
-from discopy.axioms import (
+from discopy.testable import (
     C1, GENERATORS, BoundaryConnected, HorizontalPair, Square)
 from discopy.drawing import Drawing
 from discopy.config import (
