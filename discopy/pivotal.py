@@ -55,7 +55,7 @@ We also have its dagger and its transpose:
 from __future__ import annotations
 
 from discopy import cat, cmap, rigid, traced
-from discopy.abc import Category, PivotalCategory
+from discopy.abc import Category, PivotalCategory, TracedCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
 
@@ -118,6 +118,11 @@ class Nat(rigid.Nat, Ty):
     l = r = property(lambda self: self)
 
 
+SLIDING_TRACE = (
+    "A trace of cups and caps lets a box slide around it by isotopy, which "
+    "snake removal does not decide.")
+
+
 @factory
 class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     """
@@ -133,6 +138,20 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
 
     dagger_involution = Category.dagger_involution
     dagger_contravariance = Category.dagger_contravariance
+    dagger_monoidality = traced.Diagram.dagger_monoidality
+    trace_superposing_left = TracedCategory.trace_superposing_left
+    trace_superposing_right = TracedCategory.trace_superposing_right
+    trace_naturality_left = TracedCategory.trace_naturality_left.failing(
+        SLIDING_TRACE)
+    trace_naturality_right = TracedCategory.trace_naturality_right.failing(
+        SLIDING_TRACE)
+    trace_dinaturality_left = \
+        TracedCategory.trace_dinaturality_left.failing(SLIDING_TRACE)
+    trace_dinaturality_right = \
+        TracedCategory.trace_dinaturality_right.failing(SLIDING_TRACE)
+    pivotality = PivotalCategory.pivotality.failing(
+        "The two transposes of a free box are not isotopic: pivotality is "
+        "the axiom relating them, which snake removal does not use.")
 
     def dagger(self):
         """
@@ -289,5 +308,7 @@ Id = Diagram.id
 class Equation(rigid.Equation):
     """ The :class:`rigid.Equation` of pivotal diagrams. """
 
+
+Diagram.equation_factory = Equation
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire", "PRO": "Nat"})

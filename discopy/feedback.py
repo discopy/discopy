@@ -352,6 +352,9 @@ class Diagram(markov.Diagram, FeedbackCategory):
     dagger_involution = Category.dagger_involution.inapplicable(NO_DAGGER)
     dagger_contravariance = Category.dagger_contravariance.inapplicable(
         NO_DAGGER)
+    dagger_monoidality = FeedbackCategory.dagger_monoidality
+    feedback_joining = FeedbackCategory.feedback_joining.failing(
+        "Feedback unrolls heterogeneous memory in the wrong order, see #649.")
 
     def delay(self, n_steps=1):
         """ The delay of a feedback diagram. """
@@ -479,6 +482,13 @@ class Swap(Permutation, markov.Swap, Box):
         return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
 
 
+class Trace(markov.Trace, Box):
+    """ A trace in a feedback category. """
+
+    def delay(self, n_steps=1):
+        return type(self)(self.arg.delay(n_steps), left=self.left)
+
+
 class Copy(markov.Copy, Box):
     """
     The copy of an atomic type :code:`x` some :code:`n` number of times.
@@ -493,6 +503,10 @@ class Copy(markov.Copy, Box):
 
     def delay(self, n_steps=1):
         return type(self)(self.dom.delay(n_steps), len(self.cod))
+
+
+class Discard(markov.Discard, Copy):
+    """ A discard in a feedback category. """
 
 
 class Merge(markov.Merge, Box):
@@ -713,6 +727,7 @@ Diagram.functor_factory = Functor
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
+Diagram.trace_factory, Diagram.discard_factory = Trace, Discard
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
@@ -722,5 +737,7 @@ class Equation(markov.Equation):
     """ The :class:`markov.Equation` of feedback diagrams. """
     up_to = staticmethod(Diagram.to_hypergraph)
 
+
+Diagram.equation_factory = Equation
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

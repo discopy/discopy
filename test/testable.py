@@ -10,16 +10,30 @@ from hypothesis import strategies as st
 from hypothesis.errors import NoSuchExample
 from pytest import raises
 
-from discopy import cat
+from discopy import biclosed, cat, feedback, monoidal, traced
 from discopy.testable import (
-    C1,
+    Atomic,
     Axiom,
     AxiomFailure,
+    BoundaryConnected,
+    C1,
     ComposablePair,
     ComposableTriple,
     Equation,
+    FeedbackJoining,
+    FeedbackVanishing,
     Grid,
+    HorizontalPair,
+    LeftCurrying,
+    NonEmpty,
+    RightCurrying,
+    Square,
     Testable,
+    TraceDinaturalityLeft,
+    TraceDinaturalityRight,
+    TraceNaturalityLeft,
+    TraceNaturalityRight,
+    TraceSuperposing,
     assert_axioms,
     axiom,
     resolve,
@@ -190,3 +204,79 @@ def test_axioms_of_category():
         unitality = None
 
     assert "unitality" not in Hidden.axioms
+
+
+def test_object_shapes():
+    x, y = monoidal.Ty('x'), monoidal.Ty('y')
+    assert Atomic(x).value == x and NonEmpty(x @ y).value == x @ y
+    with raises(ValueError):
+        Atomic(x @ y)
+    with raises(ValueError):
+        NonEmpty(monoidal.Ty())
+    assert len(find(resolve(Atomic[monoidal.Ty]), lambda _: True).value) == 1
+    assert find(resolve(NonEmpty[monoidal.Ty]), lambda _: True).value
+
+
+def test_boundary_connected():
+    x = monoidal.Ty('x')
+    f, scalar = monoidal.Box('f', x, x), monoidal.Box('s', x[:0], x[:0])
+    assert BoundaryConnected(f).value == f
+    assert BoundaryConnected(Square(f, f, f, f)).value == (f, f, f, f)
+    with raises(ValueError):
+        BoundaryConnected(f @ scalar)
+    with raises(ValueError):
+        BoundaryConnected(HorizontalPair(f, scalar))
+    pair = find(resolve(BoundaryConnected[HorizontalPair[monoidal.Diagram]]),
+                lambda pair: all(cell.boxes for cell in pair.value))
+    assert all(cell.to_map().is_boundary_connected for cell in pair.value)
+
+
+def test_trace_shapes():
+    x, y = traced.Ty('x'), traced.Ty('y')
+    f, g = traced.Box('f', x @ y, x @ y), traced.Box('g', y, y)
+    assert TraceSuperposing(f, y) == (f, y)
+    with raises(AxiomError):
+        TraceSuperposing(traced.Box('h', x, y), y)
+    assert TraceNaturalityLeft(f, x, g) == (f, x, g)
+    assert TraceNaturalityRight(traced.Box('f', y @ x, y @ x), x, g)
+    with raises(ValueError):
+        TraceNaturalityLeft(f, y, g)
+    assert TraceDinaturalityRight(f, g) == (f, g)
+    assert TraceDinaturalityLeft(traced.Box('f', y @ x, y @ x), g)
+    with raises(ValueError):
+        TraceDinaturalityLeft(f, g)
+    for shape in (TraceSuperposing, TraceNaturalityLeft,
+                  TraceNaturalityRight, TraceDinaturalityLeft,
+                  TraceDinaturalityRight):
+        assert isinstance(
+            find(resolve(shape[traced.Diagram]), lambda _: True), shape)
+
+
+def test_currying_shapes():
+    x, y = biclosed.Ty('x'), biclosed.Ty('y')
+    left, right = biclosed.Diagram.ev(x, y), biclosed.Diagram.ev(x, y, False)
+    assert LeftCurrying(left, x, y) == (left, x, y)
+    assert RightCurrying(right, x, y) == (right, x, y)
+    with raises(ValueError):
+        LeftCurrying(right, x, y)
+    for shape in (LeftCurrying, RightCurrying):
+        assert isinstance(
+            find(resolve(shape[biclosed.Diagram]), lambda _: True), shape)
+
+
+def test_feedback_shapes():
+    x, y = feedback.Ty('x'), feedback.Ty('y')
+    f = feedback.Box('f', x @ (x @ y).delay(), x @ x @ y)
+    assert FeedbackVanishing(f, feedback.Ty()) == (f, feedback.Ty())
+    with raises(ValueError):
+        FeedbackVanishing(f, x)
+    assert FeedbackJoining(f, x @ y) == (f, x @ y)
+    with raises(ValueError):
+        FeedbackJoining(f, y)
+    with raises(ValueError):
+        FeedbackJoining(f, y @ x)
+    with raises(ValueError):
+        FeedbackJoining(feedback.Box('g', x @ (x @ y).delay(), x @ y @ x), x @ y)
+    for shape in (FeedbackVanishing, FeedbackJoining):
+        assert isinstance(
+            find(resolve(shape[feedback.Diagram]), lambda _: True), shape)

@@ -27,6 +27,23 @@ Summary
     Grid
     ComposablePair
     ComposableTriple
+    Atomic
+    NonEmpty
+    BoundaryConnected
+    HorizontalPair
+    Square
+    TraceSuperposing
+    TraceSliding
+    TraceNaturalityLeft
+    TraceNaturalityRight
+    TraceDinaturality
+    TraceDinaturalityLeft
+    TraceDinaturalityRight
+    Currying
+    LeftCurrying
+    RightCurrying
+    FeedbackVanishing
+    FeedbackJoining
 
 .. admonition:: Functions
 
@@ -550,6 +567,276 @@ class ComposableTriple(Grid):
 
     n_rows, n_columns = 3, 1
     n_active_rows = 3
+
+
+@dataclass(frozen=True)
+class Atomic(Testable, NamedGeneric["factory"]):
+    """ An object of the factory with exactly one generator inside. """
+
+    value: C0
+
+    def __post_init__(self):
+        if len(self.value) != 1:
+            raise ValueError("Expected an atomic object.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """ Generate an object with exactly one generator inside. """
+        return resolve(cls.factory, **params).filter(
+            lambda value: len(value) == 1).map(cls)
+
+
+@dataclass(frozen=True)
+class NonEmpty(Testable, NamedGeneric["factory"]):
+    """ A non-empty object of the factory. """
+
+    value: C0
+
+    def __post_init__(self):
+        if not self.value:
+            raise ValueError("Expected a non-empty object.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """ Generate a non-empty object. """
+        return resolve(cls.factory, **params).filter(bool).map(cls)
+
+
+@dataclass(frozen=True)
+class BoundaryConnected(Testable, NamedGeneric["factory"]):
+    """
+    An arrow whose boundary reaches every box, read through its map when it
+    is not one itself, or a grid of such arrows, connected cell by cell.
+    """
+
+    value: C1
+
+    def __post_init__(self):
+        cells = self.value if isinstance(self.value, Grid)\
+            else (self.value, )
+        for cell in cells:
+            graph = cell if hasattr(cell, "is_boundary_connected")\
+                else cell.to_map()
+            if not graph.is_boundary_connected:
+                raise ValueError("Expected a boundary-connected arrow.")
+
+    @classmethod
+    def strategy(cls, **params):
+        """ Generate from the factory restricted to connected arrows. """
+        return resolve(
+            cls.factory, boundary_connected=True, **params).map(cls)
+
+
+class HorizontalPair(Grid):
+    """ Two arrows side by side, the arguments of a tensor. """
+
+    n_rows, n_columns = 1, 2
+
+
+class Square(Grid):
+    """ A two-by-two grid of arrows, the arguments of the interchange law. """
+
+    n_rows = n_columns = 2
+
+
+class TraceSuperposing(Testable, NamedGeneric["factory"], tuple):
+    """ A traceable arrow and an object to superpose on it. """
+
+    def __new__(cls, traced: C1, obj: C0):
+        traced.trace()
+        return super().__new__(cls, (traced, obj))
+
+    @classmethod
+    def strategy(cls):
+        """ Generate the identity on an atomic object, and an object. """
+        from hypothesis import strategies as st
+
+        atoms = resolve(cls.factory.ob).filter(lambda obj: len(obj) == 1)
+        return st.tuples(atoms, resolve(cls.factory.ob)).map(
+            lambda pair: cls(cls.factory.id(pair[0]), pair[1]))
+
+
+class TraceSliding(Testable, NamedGeneric["factory"], tuple):
+    """
+    An arrow traced over an object, on the side :attr:`left` says, and
+    one sliding around the trace on that object.
+    """
+
+    left: ClassVar[bool]
+
+    def __new__(cls, traced: C1, obj: C0, sliding: C1):
+        traced_dom = obj @ sliding.cod if cls.left else sliding.cod @ obj
+        traced_cod = obj @ sliding.dom if cls.left else sliding.dom @ obj
+        if (traced.dom, traced.cod) != (traced_dom, traced_cod):
+            raise ValueError("Expected compatible trace sliding boundaries.")
+        return super().__new__(cls, (traced, obj, sliding))
+
+    @classmethod
+    def strategy(cls):
+        """ Generate two arrows with compatible trace boundaries. """
+        from hypothesis import strategies as st
+
+        factory, objects = cls.factory, resolve(cls.factory.ob)
+        traced = resolve(factory.ob, min_length=1)
+
+        def arrows(args):
+            obj, dom, cod = args
+            traced_dom = obj @ cod if cls.left else cod @ obj
+            traced_cod = obj @ dom if cls.left else dom @ obj
+            return st.tuples(
+                factory.strategy(
+                    dom=traced_dom, cod=traced_cod, min_leaves=1),
+                factory.strategy(dom=dom, cod=cod, min_leaves=1)).map(
+                    lambda pair: cls(pair[0], obj, pair[1]))
+
+        return st.tuples(traced, objects, objects).flatmap(arrows)
+
+
+class TraceNaturalityLeft(TraceSliding):
+    """ The arguments of left trace naturality. """
+
+    left = True
+
+
+class TraceNaturalityRight(TraceSliding):
+    """ The arguments of right trace naturality. """
+
+    left = False
+
+
+class TraceDinaturality(Testable, NamedGeneric["factory"], tuple):
+    """
+    An arrow and one sliding around its trace, traceable only once the
+    sliding arrow is composed in on either side.
+    """
+
+    left: ClassVar[bool]
+
+    def __new__(cls, traced: C1, sliding: C1):
+        traced_in, traced_out = (
+            (traced.dom[:len(sliding.cod)], traced.cod[:len(sliding.dom)])
+            if cls.left else
+            (traced.dom[len(traced.dom) - len(sliding.cod):],
+             traced.cod[len(traced.cod) - len(sliding.dom):]))
+        if (traced_in, traced_out) != (sliding.cod, sliding.dom):
+            raise ValueError("Expected compatible trace sliding boundaries.")
+        return super().__new__(cls, (traced, sliding))
+
+    @classmethod
+    def strategy(cls):
+        """ Generate an arrow sliding between two traced objects. """
+        from hypothesis import strategies as st
+
+        factory, objects = cls.factory, resolve(cls.factory.ob)
+        traced = resolve(factory.ob, min_length=1)
+
+        def arrows(args):
+            base, cobase, source, target = args
+            traced_dom = source @ base if cls.left else base @ source
+            traced_cod = target @ cobase if cls.left else cobase @ target
+            return st.tuples(
+                factory.strategy(
+                    dom=traced_dom, cod=traced_cod, min_leaves=1),
+                factory.strategy(dom=target, cod=source, min_leaves=1)).map(
+                    lambda pair: cls(*pair))
+
+        return st.tuples(objects, objects, traced, traced).flatmap(arrows)
+
+
+class TraceDinaturalityLeft(TraceDinaturality):
+    """ The arguments of left trace dinaturality. """
+
+    left = True
+
+
+class TraceDinaturalityRight(TraceDinaturality):
+    """ The arguments of right trace dinaturality. """
+
+    left = False
+
+
+class Currying(Testable, NamedGeneric["factory"], tuple):
+    """
+    An evaluation with its base and exponent, to curry on the side
+    :attr:`left` says.
+    """
+
+    left: ClassVar[bool]
+
+    def __new__(cls, arrow: C1, base: C0, exponent: C0):
+        exponential = base << exponent if cls.left else exponent >> base
+        arrow_dom = exponential @ exponent if cls.left\
+            else exponent @ exponential
+        if (arrow.dom, arrow.cod) != (arrow_dom, base):
+            raise ValueError("Expected an evaluation.")
+        return super().__new__(cls, (arrow, base, exponent))
+
+    @classmethod
+    def strategy(cls):
+        """ Generate the evaluation of two atomic objects. """
+        from hypothesis import strategies as st
+
+        atoms = resolve(cls.factory.ob).filter(lambda obj: len(obj) == 1)
+        return st.tuples(atoms, atoms).map(lambda pair: cls(
+            cls.factory.ev(*pair, left=cls.left), *pair))
+
+
+class LeftCurrying(Currying):
+    """ An evaluation with its base and exponent, to curry on the left. """
+
+    left = True
+
+
+class RightCurrying(Currying):
+    """ An evaluation with its base and exponent, to curry on the right. """
+
+    left = False
+
+
+class FeedbackVanishing(Testable, NamedGeneric["factory"], tuple):
+    """ An arrow and the unit, the memory of a feedback that vanishes. """
+
+    def __new__(cls, arrow: C1, unit: C0):
+        if len(unit):
+            raise ValueError("Expected the monoidal unit.")
+        arrow.feedback(mem=unit)
+        return super().__new__(cls, (arrow, unit))
+
+    @classmethod
+    def strategy(cls, **params):
+        """ Generate an arrow with the unit beside it. """
+        return cls.factory.strategy(**params).map(
+            lambda arrow: cls(arrow, cls.factory.ob()))
+
+
+class FeedbackJoining(Testable, NamedGeneric["factory"], tuple):
+    """ An arrow with at least two units of memory to feed back. """
+
+    def __new__(cls, arrow: C1, memory: C0):
+        if len(memory) < 2:
+            raise ValueError("Expected at least two units of memory.")
+        if arrow.dom[-len(memory):] != memory.delay():
+            raise ValueError("Expected the delayed memory in the domain.")
+        if arrow.cod[-len(memory):] != memory:
+            raise ValueError("Expected the memory in the codomain.")
+        return super().__new__(cls, (arrow, memory))
+
+    @classmethod
+    def strategy(cls):
+        """ Generate an arrow over two atomic units of memory. """
+        from hypothesis import strategies as st
+
+        objects = resolve(cls.factory.ob)
+        atoms = objects.filter(lambda obj: len(obj) == 1)
+
+        def arrows(args):
+            obj, first, second = args
+            memory = first @ second
+            return cls.factory.strategy(
+                dom=obj @ memory.delay(), cod=obj @ memory).map(
+                    lambda arrow: cls(arrow, memory))
+
+        return st.tuples(objects, atoms, atoms).flatmap(arrows)
 
 
 def resolve(annotation, **params) -> st.SearchStrategy:

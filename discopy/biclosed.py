@@ -342,6 +342,11 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
+    currying_left = BiclosedCategory.currying_left.failing(
+        "A free curry is a box, so currying does not evaluate back.")
+    currying_right = BiclosedCategory.currying_right.failing(
+        "A free curry is a box, so currying does not evaluate back.")
+
 
 class Box(monoidal.Box, Diagram):
     """
@@ -895,5 +900,7 @@ Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
 class Equation(monoidal.Equation):
     """ The :class:`monoidal.Equation` of biclosed diagrams. """
 
+
+Diagram.equation_factory = Equation
 
 __getattr__ = deprecated_alias(__name__, {"Ob": "Wire"})

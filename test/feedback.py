@@ -108,3 +108,10 @@ def test_axioms():
                 lambda _: True).dom is None
     with raises(AxiomError):
         find(Feedback.strategy(), lambda _: True).dagger()
+
+
+def test_Trace_delay():
+    x = Ty('x')
+    f = Box('f', x @ x, x @ x)
+    assert f.trace().delay() == f.delay().trace()
+    assert f.trace(left=True).delay() == f.delay().trace(left=True)
