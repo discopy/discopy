@@ -66,7 +66,8 @@ from discopy import (
     monoidal, rigid, markov, compact, pivotal, cmap, hypergraph)
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
-from discopy.utils import assert_isatomic, deprecated_alias, factory_name
+from discopy.utils import (
+    assert_isatomic, deprecated_alias, factory_name, from_tree)
 
 
 class Wire(pivotal.Wire):
@@ -77,6 +78,12 @@ class Wire(pivotal.Wire):
         name : The name of the object.
     """
     l = r = property(lambda self: self)
+
+    @classmethod
+    def strategy(cls, **params):
+        """ Generate a self-dual object, i.e. at winding zero. """
+        return super().strategy(
+            **{"min_winding": 0, "max_winding": 0, **params})
 
 
 @factory
@@ -266,6 +273,19 @@ class Spider(Box):
                 + f"({dom.n}, {cod.n}, {state['_typ']}{str_data})"
         super().__setstate__(state)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """
+        Generate a spider of an atomic type with up to two legs a side,
+        with or without a phase.
+        """
+        from hypothesis import strategies as st
+
+        legs = st.sampled_from(((0, 1), (1, 0), (1, 2), (2, 1), (2, 2)))
+        phases = st.sampled_from((None, 0.25, 0.5))
+        return st.tuples(legs, cls.atomic_strategy(types), phases).map(
+            lambda args: cls(*args[0], args[1], args[2]))
+
     @property
     def phase(self):
         """ The phase of the spider. """
@@ -273,9 +293,20 @@ class Spider(Box):
 
     def __repr__(self):
         phase_repr = "" if self.phase is None \
-            else f", phase={repr(self.phase)}"
+            else f", {repr(self.phase)}"
         return factory_name(type(self)) + \
             f"({len(self.dom)}, {len(self.cod)}, {repr(self.typ)}{phase_repr})"
+
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)),
+                'n_legs_in': len(self.dom), 'n_legs_out': len(self.cod),
+                'typ': self.typ.to_tree()}
+        return tree if self.data is None else dict(tree, data=self.data)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['n_legs_in'], tree['n_legs_out'],
+                   from_tree(tree['typ']), tree.get('data'))
 
     def dagger(self):
         phase = None if self.phase is None else -self.phase

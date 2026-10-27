@@ -1,4 +1,5 @@
 from discopy.ribbon import *
+from discopy.testable import assert_axioms, assert_generators
 
 
 def test_to_ribbons_width():
@@ -92,3 +93,8 @@ def test_Kauffman():
 def test_rotate():
     x = Ty('x')
     assert Twist(x).r == Twist(x)
+
+
+def test_axioms():
+    assert_axioms(Diagram)
+    assert_generators(Diagram)

@@ -1,4 +1,5 @@
 from discopy.braided import *
+from discopy.testable import assert_axioms, assert_generators
 
 
 x, y, z = map(Ty, "xyz")
@@ -14,3 +15,8 @@ def test_simplify():
     assert (Diagram.braid(x, y @ z) >> Diagram.braid(x, y @ z)[::-1]).simplify()\
         == Diagram.id(x @ y @ z)\
         == (Diagram.braid(y @ z, x)[::-1] >> Diagram.braid(y @ z, x)).simplify()
+
+
+def test_axioms():
+    assert_axioms(Diagram)
+    assert_generators(Diagram)

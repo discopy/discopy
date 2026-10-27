@@ -77,7 +77,7 @@ from discopy import symmetric, monoidal, cmap, hypergraph
 from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401  pylint: disable=unused-import
-from discopy.utils import assert_isatomic, factory_name
+from discopy.utils import assert_isatomic, factory_name, from_tree
 
 
 Layer = symmetric.Layer
@@ -214,16 +214,33 @@ class Copy(Box):
         Box.__init__(self, name, dom=x, cod=x ** n,
                      draw_as_spider=True, color="black", drawing_name="")
 
-    def __new__(cls, x: monoidal.Ty, n: int = 2):
+    def __new__(cls, x: monoidal.Ty = None, n: int = 2):
         return super().__new__(cls) if n else\
             cls.discard_factory.__new__(cls.discard_factory, x)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate two or three copies of an atomic type. """
+        from hypothesis import strategies as st
+
+        return st.tuples(
+            cls.atomic_strategy(types), st.sampled_from((2, 3))).map(
+                lambda args: cls(*args))
+
     def dagger(self) -> Merge:
-        return Merge(self.dom, len(self.cod))
+        return self.ar.merge_factory(self.dom, len(self.cod))
 
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.dom)}, {len(self.cod)})")
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'x': self.dom.to_tree(), 'n': len(self.cod)}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['x']), tree['n'])
 
 
 class Merge(Box):
@@ -240,12 +257,22 @@ class Merge(Box):
         Box.__init__(self, name, dom=x ** n, cod=x,
                      draw_as_spider=True, color="black", drawing_name="")
 
+    strategy = classmethod(Copy.strategy.__func__)
+
     def dagger(self) -> Merge:
-        return Copy(self.cod, len(self.dom))
+        return self.ar.copy_factory(self.cod, len(self.dom))
 
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)),
+                'x': self.cod.to_tree(), 'n': len(self.dom)}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['x']), tree['n'])
 
 
 class Discard(Copy):
@@ -259,6 +286,11 @@ class Discard(Copy):
         if n:
             raise ValueError(f"A discard has no copies, got n={n}.")
         super().__init__(x, 0)
+
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the discard of an atomic type. """
+        return cls.atomic_strategy(types).map(cls)
 
 
 class Sum(symmetric.Sum, Box):

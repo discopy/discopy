@@ -1,11 +1,14 @@
 from pytest import raises
 
 from discopy.traced import *
+from discopy.testable import assert_axioms, assert_generators
 from discopy.utils import AxiomError
 
 
 def test_trace_repr():
-    assert repr(Box('f', 'x', 'x').trace()) == "traced.Trace(f, left=False)"
+    assert repr(Box('f', 'x', 'x').trace()) == (
+        "traced.Trace(traced.Box('f', monoidal.Ty(cat.Ob('x')), "
+        "monoidal.Ty(cat.Ob('x'))), left=False)")
 
 
 def test_trace_error():
@@ -41,6 +44,11 @@ def test_trace_vanishing():
 
     k = multiplicative.Function(lambda i, j: (i, j), (int, int), (int, int))
     assert k.trace(0) == k
+
+
+def test_axioms():
+    assert_axioms(Diagram)
+    assert_generators(Diagram)
 
 
 def test_Sum():

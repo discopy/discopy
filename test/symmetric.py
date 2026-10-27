@@ -5,6 +5,7 @@ import pickle
 from pytest import raises
 
 from discopy.symmetric import *
+from discopy.testable import assert_axioms, assert_generators
 from discopy.utils import AxiomError, dumps, loads
 
 
@@ -406,3 +407,8 @@ def test_coloured_Layer_boxes_and_types():
     assert Layer(f).boxes_and_types == (empty_red, f, empty_green)
     assert Layer(empty_red, f, empty_green).boxes_and_types\
         == (empty_red, f, empty_green)
+
+
+def test_axioms():
+    assert_axioms(Diagram)
+    assert_generators(Diagram)

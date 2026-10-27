@@ -55,7 +55,7 @@ We also have its dagger and its transpose:
 from __future__ import annotations
 
 from discopy import cat, cmap, rigid, traced
-from discopy.abc import PivotalCategory
+from discopy.abc import Category, PivotalCategory
 from discopy.cat import factory
 from discopy.utils import deprecated_alias
 
@@ -70,6 +70,16 @@ class Wire(rigid.Wire):
     """
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
+
+    @classmethod
+    def strategy(cls, **params):
+        """
+        Generate an object with a parity for winding number, by default: a
+        subclass whose objects are more self-dual narrows the bounds by
+        passing its own.
+        """
+        return super().strategy(
+            **{"min_winding": 0, "max_winding": 1, **params})
 
     def dagger(self) -> Wire:
         """
@@ -89,6 +99,9 @@ class Ty(rigid.Ty):
         inside (Wire) : The objects inside the type.
     """
     generator_factory = Wire
+
+    dagger_involution = Category.dagger_involution
+    dagger_contravariance = Category.dagger_contravariance
 
 
 @factory
@@ -117,6 +130,9 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
     ob = Ty
+
+    dagger_involution = Category.dagger_involution
+    dagger_contravariance = Category.dagger_contravariance
 
     def dagger(self):
         """

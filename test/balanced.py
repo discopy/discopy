@@ -1,4 +1,5 @@
 from discopy.balanced import *
+from discopy.testable import assert_axioms, assert_generators
 
 
 def test_repr():
@@ -85,3 +86,8 @@ def test_to_braided_default_and_zero_width():
 
     # width=0 returns the diagram as is, i.e. without dual rails.
     assert twist.to_braided(width=0) == twist
+
+
+def test_axioms():
+    assert_axioms(Diagram)
+    assert_generators(Diagram)

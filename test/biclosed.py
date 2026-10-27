@@ -1,4 +1,5 @@
 from discopy.biclosed import *
+from discopy.testable import assert_axioms, assert_generators
 from discopy import biclosed, cat
 from discopy.utils import dumps, loads
 from pytest import raises
@@ -227,3 +228,8 @@ def test_transparency():
                 curry(), curry(left=False), Constant('c', x)]:
         assert eval(repr(box), {"biclosed": biclosed, "cat": cat}) == box
         assert loads(dumps(box)) == box
+
+
+def test_axioms():
+    assert_axioms(Ty, Diagram)
+    assert_generators(Diagram)

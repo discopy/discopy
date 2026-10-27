@@ -3,6 +3,8 @@ from random import choice, seed
 
 from discopy import *
 from discopy.feedback import *
+from discopy.testable import assert_axioms, assert_generators
+from hypothesis import find
 
 
 def test_invalid_inputs():
@@ -97,3 +99,12 @@ def test_Permutation_delay():
     assert perm.delay(2) == perm.delay().delay()
     assert (perm >> Swap(z, x) @ y).delay()\
         == perm.delay() >> Swap(z, x).delay() @ y.delay()
+
+
+def test_axioms():
+    assert_axioms(Ty, Diagram)
+    assert_generators(Diagram)
+    assert find(Wire.strategy(dom=monoidal.Colour('red')),
+                lambda _: True).dom is None
+    with raises(AxiomError):
+        find(Feedback.strategy(), lambda _: True).dagger()

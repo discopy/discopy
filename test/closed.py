@@ -4,6 +4,7 @@ from pytest import raises
 
 from discopy import biclosed
 from discopy.closed import *
+from discopy.testable import assert_axioms, assert_generators
 from discopy.utils import dumps, loads
 
 
@@ -562,3 +563,8 @@ def test_compound_name_is_lazy():
         == "let(f(x), lambda y: Tuple(y, Projection(Tuple(x, y), 0)))"
     assert Tuple(x, y) == Tuple(x, y) != Tuple(y, x)
     assert hash(Tuple(x, y)) == hash(Tuple(x, y))
+
+
+def test_axioms():
+    assert_axioms(Ty, Diagram)
+    assert_generators(Diagram)

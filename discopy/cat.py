@@ -314,32 +314,46 @@ class Arrow(FreeCategory, Testable["Arrow"]):
     @classmethod
     def strategy(
             cls, *, types=None, dom=None, cod=None,
-            min_leaves=None, max_leaves=10):
+            min_leaves=None, max_leaves=3):
         """
-        Generate the canonical instantiation: a single identity or a single
-        generator box with the requested (or an arbitrary) boundary.
+        Generate a path of fresh generators, composable from ``dom`` to
+        ``cod`` where asked for: the identity when the path is empty, each
+        generator drawn by the :attr:`generator_factory` between the
+        codomain of the one before and an arbitrary object, the last one
+        landing on ``cod``.
 
-        Callers bound the number of generators of a composite term with
-        :code:`min_leaves` and :code:`max_leaves`; a canonical
-        instantiation has at most one, so both are ignored.
+        Parameters:
+            types : The strategy the generators draw their boundaries from.
+            min_leaves : The least number of generators.
+            max_leaves : The most number of generators.
+            dom : The domain asked for, if any.
+            cod : The codomain asked for, if any.
         """
-        # pylint: disable=unused-argument  # a canonical term has one leaf
         from hypothesis import strategies as st
 
         types = cls.ob.strategy() if types is None else types
 
-        def generators(dom=None, cod=None):
-            """ Generator boxes between the given boundaries. """
-            return cls.generator_factory.strategy(
-                types=types, dom=dom, cod=cod)
+        @st.composite
+        def paths(draw):
+            minimum = 0 if min_leaves is None else min_leaves
+            if dom is not None and cod is not None and dom != cod:
+                minimum = max(1, minimum)
+            length = draw(st.integers(min_value=minimum, max_value=max_leaves))
+            if not length:
+                return cls.id(dom if dom is not None else (
+                    cod if cod is not None else draw(types)))
+            inside, source = [], dom if dom is not None else draw(types)
+            for i in range(length):
+                target = cod if i == length - 1 and cod is not None\
+                    else draw(types)
+                inside.append(draw(cls.generator_factory.strategy(
+                    types=types, dom=source, cod=target)))
+                source = target
+            return cls(
+                inside=tuple(inside), dom=inside[0].dom, cod=inside[-1].cod,
+                _scan=False)
 
-        if dom is not None and cod is not None:
-            if dom == cod:
-                return st.just(cls.id(dom))
-            return generators(dom=dom, cod=cod)
-        if dom is not None or cod is not None:
-            return generators(dom=dom, cod=cod)
-        return st.one_of(types.map(cls.id), generators())
+        return paths()
 
     def __setstate__(self, state):
         if '_dom' in state:  # Backward compatibility

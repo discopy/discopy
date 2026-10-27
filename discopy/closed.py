@@ -418,7 +418,13 @@ class Trace(markov.Trace, Box):
 
 
 class Copy(markov.Copy, Box):
-    "A markov copy in a closed category"
+    "A markov copy in a closed category."
+
+    is_linear = False
+
+
+class Merge(markov.Merge, Box):
+    "A markov merge in a closed category."
 
     is_linear = False
 
@@ -484,6 +490,7 @@ CMap = cmap.CMap[Diagram]
 Diagram.functor_factory = Functor
 Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
+Diagram.merge_factory = Merge
 Diagram.swap_factory = Swap
 Diagram.permutation_factory = Permutation
 Diagram.pack_factory = Pack

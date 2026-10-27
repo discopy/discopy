@@ -2,6 +2,7 @@ from pytest import raises
 
 from discopy.monoidal import Colour
 from discopy.rigid import *
+from discopy.testable import assert_axioms, assert_generators
 
 
 def test_Ob_init():
@@ -193,3 +194,8 @@ def test_functor_factory():
     x, y = Ty('x'), Ty('y')
     assert Diagram.functor_factory is Functor
     assert Diagram.functor_factory({x: y}, {})(x.r) == y.r
+
+
+def test_axioms():
+    assert_axioms(Ty, Diagram)
+    assert_generators(Diagram)

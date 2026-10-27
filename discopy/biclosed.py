@@ -370,6 +370,17 @@ class Eval(Box):
             else (x.exponent @ x, x.base)
         super().__init__("Eval" + str(x), dom, cod)
 
+    @classmethod
+    def strategy(cls, *, types=None):
+        """ Generate the evaluation of an exponential of two atomic types. """
+        from hypothesis import strategies as st
+
+        atoms = cls.atomic_strategy(types)
+        return st.tuples(atoms, atoms, st.booleans()).map(
+            lambda args: cls(
+                args[0] << args[1] if args[2] else args[1] >> args[0],
+                left=args[2]))
+
     def __repr__(self):
         return f"{factory_name(type(self))}({self.x!r}, left={self.left!r})"
 
@@ -410,6 +421,7 @@ class Coeval(Box):
     __repr__ = Eval.__repr__
     to_tree = Eval.to_tree
     from_tree = classmethod(Eval.from_tree.__func__)
+    strategy = classmethod(Eval.strategy.__func__)
 
     def __init__(self, x: Exp, left=None):
         assert x.is_exp

@@ -107,6 +107,14 @@ uv run pytest proptest/ -k unitality -v
 uv run pytest proptest/ -k 'Arrow and not typing'
 ```
 
+A category joins the matrix by its name in `proptest/categories.py`, once it
+generates its own instances: a free category does, its generators being its
+factories, so a new level of the hierarchy declares nothing, and a new
+structural box declares how one of itself is drawn, in a `strategy`
+classmethod beside its constructor, which `monoidal.Diagram.generators`
+finds through the `*_factory` attribute naming it. A concrete category
+states its own `strategy`, see `discopy.testable.Testable`.
+
 A cell is skipped when its axiom declares that the structure does not
 apply, and xfailed when the law is declared broken, each carrying its
 reason: pass `-rsxX` to list the skips, xfails and unexpected passes with
