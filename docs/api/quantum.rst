@@ -11,6 +11,7 @@ quantum
     circuit
     gates
     ansatze
+    reservoir
     zx
     tk
     pennylane
