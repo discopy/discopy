@@ -31,6 +31,7 @@ Before pushing anything, make sure that:
 - you have reported any bugs or confusing docs that you encounter even if unrelated
 - you have added docs and tests that are complete but concise as best as you can
 - you have added an entry to the `[Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) for any user-facing change
+- the `[Unreleased]` entry is one line saying what changed for a user, with its PR as a `[#n]` link defined at the bottom; fixes to something not yet released get no entry
 - you have `uv run` `pflake8 discopy`, `pylint discopy` and `coverage run -m pytest` as described in @CONTRIBUTING.md
 - you have respected the [code style guide](CONTRIBUTING.md#code-style-guide)
 
